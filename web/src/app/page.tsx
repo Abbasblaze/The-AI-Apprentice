@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { ConversationProvider, useConversationClientTool } from '@elevenlabs/react'
 
@@ -12,7 +12,9 @@ import { useDirectorLoop } from '@/hooks/useDirectorLoop'
 import { useFrameSampler } from '@/hooks/useFrameSampler'
 import { useScreenCapture } from '@/hooks/useScreenCapture'
 import { useVoiceSession } from '@/hooks/useVoiceSession'
-import { postFrame } from '@/lib/apiClient'
+import { endSession, postErpEvents, postFrame } from '@/lib/apiClient'
+import { ERP_CHANNEL } from '@/lib/erp/broadcast'
+import type { ErpBroadcastMessage } from '@/lib/erp/types'
 import type {
   AppEvent,
   LedgerEntry,
@@ -23,6 +25,32 @@ import type {
 
 const INPUT_COST_PER_TOKEN = 0.05 / 1_000_000
 const OUTPUT_COST_PER_TOKEN = 0.4 / 1_000_000
+
+function entryTime(entry: LedgerEntry): number {
+  return entry.type === 'answer' ? entry.t : entry.data.t
+}
+
+function mergeErpEvents(entries: LedgerEntry[], erpEvents: AppEvent[]): LedgerEntry[] {
+  let result = [...entries]
+  for (const erpEvent of erpEvents) {
+    result = result.filter((entry) => {
+      if (entry.type !== 'event') return true
+      if (entry.data.source !== 'vision') return true
+      if (Math.abs(entry.data.t - erpEvent.t) > 3) return true
+      return !(
+        entry.data.field !== null &&
+        entry.data.field === erpEvent.field &&
+        entry.data.from_value === erpEvent.from_value &&
+        entry.data.to_value === erpEvent.to_value
+      )
+    })
+    const newEntry: LedgerEntry = { type: 'event', data: erpEvent }
+    const idx = result.findIndex((e) => entryTime(e) > erpEvent.t)
+    if (idx === -1) result.push(newEntry)
+    else result.splice(idx, 0, newEntry)
+  }
+  return result
+}
 
 const INITIAL_STATS: SessionStats = {
   framesSeen: 0,
@@ -56,6 +84,7 @@ function PageContent() {
   const inFlightRef = useRef(false)
   const eventsRef = useRef<AppEvent[]>([])
   const lastQuestionAskedMsRef = useRef(0)
+  const isOffRecordRef = useRef(false)
 
   const handleVoiceError = useCallback((msg: string) => setApiError(msg), [])
 
@@ -91,6 +120,41 @@ function PageContent() {
     onError: handleVoiceError,
     onAnswered: handleAnswered,
   })
+
+  useEffect(() => {
+    isOffRecordRef.current = isOffRecord
+  })
+
+  useEffect(() => {
+    const channel = new BroadcastChannel(ERP_CHANNEL)
+    channel.onmessage = (event: MessageEvent<ErpBroadcastMessage>) => {
+      const msg = event.data
+      if (msg.type !== 'erp-events') return
+      const sessionId = sessionIdRef.current
+      if (!sessionId || isOffRecordRef.current) return
+
+      const t0 = startTimeRef.current
+      const erpEvents: AppEvent[] = msg.events.map((e) => ({
+        id: crypto.randomUUID(),
+        t: (e.wallMs - t0) / 1000,
+        kind: e.kind,
+        subject: e.subject,
+        field: e.field,
+        from_value: e.from_value,
+        to_value: e.to_value,
+        summary: e.summary,
+        source: 'erp' as const,
+      }))
+
+      eventsRef.current = [...eventsRef.current, ...erpEvents]
+      setEntries((prev) => mergeErpEvents(prev, erpEvents))
+      setLastScreenChangeMs(Date.now())
+
+      postErpEvents(sessionId, erpEvents).catch(() => {})
+      pushScreenEvents(erpEvents)
+    }
+    return () => channel.close()
+  }, [pushScreenEvents])
 
   useConversationClientTool('get_recent_screen_events', () => {
     const recent = eventsRef.current.slice(-10)
@@ -199,6 +263,9 @@ function PageContent() {
     stopSharing()
     stopVoice()
     inFlightRef.current = false
+    if (sessionIdRef.current) {
+      endSession(sessionIdRef.current).catch(() => {})
+    }
   }, [stopSharing, stopVoice])
 
   const estimatedCostUsd =

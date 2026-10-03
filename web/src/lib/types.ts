@@ -7,6 +7,8 @@ export type EventKind =
   | 'error'
   | 'other'
 
+export type EventSource = 'vision' | 'erp'
+
 export interface AppEvent {
   id: string
   t: number
@@ -16,6 +18,7 @@ export interface AppEvent {
   from_value: string | null
   to_value: string | null
   summary: string
+  source: EventSource
 }
 
 export interface FrameRequest {
@@ -99,4 +102,42 @@ export interface TranscriptRequest {
 export interface TranscriptResponse {
   session_id: string
   entries: TranscriptEntry[]
+}
+
+export interface StoredDecision {
+  id: string
+  t: number
+  should_ask: boolean
+  kind: QuestionKind
+  anchor_event_id: string
+  question: string
+  why: string
+  rejected_reason: string | null
+  answered: boolean
+  answer_text: string | null
+}
+
+export interface SnapshotIndexEntry {
+  t: number
+  filename: string
+}
+
+export interface SessionSummary {
+  session_id: string
+  start_time: number
+  end_time: number | null
+  event_count: number
+  erp_event_count: number
+  question_count: number
+}
+
+export interface SessionRecord {
+  session_id: string
+  start_time: number
+  end_time: number | null
+  events: AppEvent[]
+  erp_events: AppEvent[]
+  transcript: TranscriptEntry[]
+  decisions: StoredDecision[]
+  snapshots: SnapshotIndexEntry[]
 }

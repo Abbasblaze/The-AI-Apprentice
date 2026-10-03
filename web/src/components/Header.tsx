@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useEffect, useState } from 'react'
 
 import type { VoiceMode } from '@/lib/types'
@@ -55,6 +56,14 @@ export function Header({ isSharing, startTimeRef, voiceMode, isOffRecord }: Prop
       </h1>
 
       <div className="flex items-center gap-4">
+        <Link
+          href="/sessions"
+          className="text-sm"
+          style={{ color: 'var(--color-graphite)', textDecoration: 'none' }}
+        >
+          Sessions
+        </Link>
+
         {isOffRecordActive && (
           <span
             className="text-xs px-2 py-0.5"

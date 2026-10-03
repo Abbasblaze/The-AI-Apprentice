@@ -1,0 +1,150 @@
+'use client'
+
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
+
+import { InvoiceDetail } from '@/components/erp/InvoiceDetail'
+import { InvoiceInbox } from '@/components/erp/InvoiceInbox'
+import { broadcastErpEvents } from '@/lib/erp/broadcast'
+import { defaultCommitGuard } from '@/lib/erp/commitGuard'
+import { erpReducer, toErpEvents } from '@/lib/erp/reducer'
+import { SEEDS } from '@/lib/erp/seeds'
+import type { CommitGuard } from '@/lib/erp/commitGuard'
+import type { ErpAction, ErpState, SeedSet } from '@/lib/erp/types'
+
+const LS_KEY = 'ai-apprentice-erp-state'
+
+function loadState(seedSet: SeedSet): ErpState {
+  if (typeof window === 'undefined') return SEEDS[seedSet]
+  try {
+    const raw = localStorage.getItem(LS_KEY)
+    if (raw) {
+      const parsed = JSON.parse(raw) as { seedSet: SeedSet; state: ErpState }
+      if (parsed.seedSet === seedSet) return parsed.state
+    }
+  } catch { /* ignore */ }
+  return JSON.parse(JSON.stringify(SEEDS[seedSet])) as ErpState
+}
+
+interface ErpAppProps {
+  commitGuard?: CommitGuard
+}
+
+function ErpApp({ commitGuard = defaultCommitGuard }: ErpAppProps) {
+  const searchParams = useSearchParams()
+  const seedSet = (searchParams.get('set') ?? 'expert') as SeedSet
+
+  const [state, setState] = useState<ErpState>(() => loadState(seedSet))
+  const stateRef = useRef<ErpState>(state)
+
+  useEffect(() => {
+    stateRef.current = state
+  })
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(LS_KEY, JSON.stringify({ seedSet, state }))
+    } catch { /* ignore */ }
+  }, [state, seedSet])
+
+  const dispatch = useCallback(
+    (action: ErpAction) => {
+      const current = stateRef.current
+      const invoice =
+        'invoice_id' in action
+          ? current.invoices.find((inv) => inv.id === action.invoice_id) ?? null
+          : null
+
+      const result = commitGuard(action, invoice)
+      if (result.decision === 'deny') return
+
+      const events = toErpEvents(action, current)
+      const next = erpReducer(current, action)
+      stateRef.current = next
+      setState(next)
+
+      if (events.length > 0) {
+        broadcastErpEvents(events)
+      }
+    },
+    [commitGuard],
+  )
+
+  const selectedInvoice =
+    state.view === 'detail' && state.selected_invoice_id
+      ? state.invoices.find((inv) => inv.id === state.selected_invoice_id) ?? null
+      : null
+
+  return (
+    <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column' }}>
+      <header
+        style={{
+          borderBottom: '1px solid #D0D0CE',
+          padding: '10px 20px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          background: '#EFEFED',
+        }}
+      >
+        <span style={{ fontWeight: 600, fontSize: '14px', letterSpacing: '-0.01em' }}>
+          APEX Financial Workflow
+        </span>
+        <button
+          onClick={() => dispatch({ type: 'RESET', seed_set: seedSet })}
+          style={{
+            fontSize: '12px',
+            color: '#6B7280',
+            background: 'none',
+            border: '1px solid #C0C0BE',
+            borderRadius: '2px',
+            padding: '3px 10px',
+            cursor: 'pointer',
+          }}
+        >
+          Reset
+        </button>
+      </header>
+
+      <div style={{ flex: 1 }}>
+        {state.view === 'inbox' || !selectedInvoice ? (
+          <div>
+            <div
+              style={{
+                padding: '10px 20px',
+                borderBottom: '1px solid #D0D0CE',
+                fontSize: '13px',
+                fontWeight: 600,
+                color: '#3A3A38',
+              }}
+            >
+              Invoice Inbox
+            </div>
+            <InvoiceInbox invoices={state.invoices} dispatch={dispatch} />
+          </div>
+        ) : (
+          <InvoiceDetail key={selectedInvoice.id} invoice={selectedInvoice} dispatch={dispatch} />
+        )}
+      </div>
+
+      <footer
+        style={{
+          borderTop: '1px solid #D0D0CE',
+          padding: '6px 20px',
+          fontSize: '11px',
+          color: '#9CA3AF',
+        }}
+      >
+        Sandbox data. No real invoices.
+      </footer>
+    </div>
+  )
+}
+
+export default function ErpPage() {
+  return (
+    <Suspense fallback={<div style={{ padding: '20px', color: '#6B7280' }}>Loading…</div>}>
+      <ErpApp />
+    </Suspense>
+  )
+}

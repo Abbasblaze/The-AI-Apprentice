@@ -1,8 +1,11 @@
 import type {
+  AppEvent,
   DirectorDecideRequest,
   DirectorDecideResponse,
   FrameRequest,
   FrameResponse,
+  SessionRecord,
+  SessionSummary,
   TranscriptEntry,
   TranscriptResponse,
 } from './types'
@@ -50,4 +53,31 @@ export async function postDirectorDecide(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(req),
   })
+}
+
+export async function postErpEvents(sessionId: string, events: AppEvent[]): Promise<void> {
+  await apiFetch<unknown>(`/api/sessions/${sessionId}/erp-events`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ events }),
+  })
+}
+
+export async function endSession(sessionId: string): Promise<void> {
+  await apiFetch<unknown>(`/api/sessions/${sessionId}/end`, {
+    method: 'POST',
+  })
+}
+
+export async function fetchSessions(): Promise<SessionSummary[]> {
+  const data = await apiFetch<{ sessions: SessionSummary[] }>('/api/sessions')
+  return data.sessions
+}
+
+export async function fetchSession(sessionId: string): Promise<SessionRecord> {
+  return apiFetch<SessionRecord>(`/api/sessions/${sessionId}`)
+}
+
+export function snapshotUrl(sessionId: string, t: number): string {
+  return `${API_BASE}/api/sessions/${sessionId}/snapshots/${t.toFixed(3)}`
 }

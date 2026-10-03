@@ -1,7 +1,8 @@
 from fastapi import APIRouter, HTTPException, Request
 
 from app.repositories.sessions import SessionRepository
-from app.schemas import DirectorDecideRequest, DirectorDecideResponse, ErrorBody
+from app.repositories.snapshots import SnapshotStore
+from app.schemas import DirectorDecideRequest, DirectorDecideResponse, ErrorBody, SnapshotIndex
 from app.services import director as director_service
 
 router = APIRouter()
@@ -30,4 +31,19 @@ async def decide(request: Request, body: DirectorDecideRequest) -> DirectorDecid
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     repo.add_director_decision(body.session_id, stored)
+
+    if response.should_ask:
+        last_frame: str | None = request.app.state.last_frames.get(body.session_id)
+        if last_frame:
+            snapshot_store: SnapshotStore = request.app.state.snapshot_store
+            saved = snapshot_store.save(body.session_id, body.elapsed_seconds, last_frame)
+            if saved:
+                repo.add_snapshot(
+                    body.session_id,
+                    SnapshotIndex(
+                        t=body.elapsed_seconds,
+                        filename=f"{body.elapsed_seconds:.3f}.jpg",
+                    ),
+                )
+
     return response

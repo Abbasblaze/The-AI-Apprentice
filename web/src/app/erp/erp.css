@@ -1,0 +1,22 @@
+.erp-root {
+  font-family: var(--font-ibm-plex), 'IBM Plex Sans', system-ui, sans-serif;
+  background: #F5F5F3;
+  color: #1A1A1A;
+  min-height: 100dvh;
+  font-size: 13px;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+}
+
+.erp-root *,
+.erp-root *::before,
+.erp-root *::after {
+  box-sizing: border-box;
+}
+
+.erp-root input:focus,
+.erp-root select:focus,
+.erp-root textarea:focus {
+  outline: 2px solid #2563EB;
+  outline-offset: -1px;
+}
