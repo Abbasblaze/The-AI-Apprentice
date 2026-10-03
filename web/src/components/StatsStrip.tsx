@@ -1,11 +1,14 @@
 'use client'
 
+import type { QuestionStats } from '@/lib/types'
+
 interface Props {
   framesSeen: number
   framesSent: number
   framesSkipped: number
   avgLatencyMs: number
   estimatedCostUsd: number
+  questionStats: QuestionStats
   visible: boolean
 }
 
@@ -26,6 +29,7 @@ export function StatsStrip({
   framesSkipped,
   avgLatencyMs,
   estimatedCostUsd,
+  questionStats,
   visible,
 }: Props) {
   if (!visible) return null
@@ -37,6 +41,16 @@ export function StatsStrip({
     >
       Seen {framesSeen} &middot; Sent {framesSent} &middot; Skipped {framesSkipped} &middot; Avg{' '}
       {formatLatency(avgLatencyMs)} &middot; Est. {formatCost(estimatedCostUsd)}
+      {questionStats.asked > 0 && (
+        <>
+          {' '}&middot; Q {questionStats.asked} asked · {questionStats.answered} answered
+          {questionStats.guardrail > 0 && (
+            <span style={{ color: 'var(--color-flag)' }}>
+              {' '}· {questionStats.guardrail} guardrail
+            </span>
+          )}
+        </>
+      )}
     </div>
   )
 }

@@ -2,14 +2,24 @@
 
 import { useCallback, useRef, useState } from 'react'
 
+import { ConversationProvider, useConversationClientTool } from '@elevenlabs/react'
+
 import { EventLedger } from '@/components/EventLedger'
 import { Header } from '@/components/Header'
 import { ScreenPreview } from '@/components/ScreenPreview'
 import { StatsStrip } from '@/components/StatsStrip'
+import { useDirectorLoop } from '@/hooks/useDirectorLoop'
 import { useFrameSampler } from '@/hooks/useFrameSampler'
 import { useScreenCapture } from '@/hooks/useScreenCapture'
+import { useVoiceSession } from '@/hooks/useVoiceSession'
 import { postFrame } from '@/lib/apiClient'
-import type { AppEvent, SessionStats } from '@/lib/types'
+import type {
+  AppEvent,
+  LedgerEntry,
+  QuestionEntry,
+  QuestionStats,
+  SessionStats,
+} from '@/lib/types'
 
 const INPUT_COST_PER_TOKEN = 0.05 / 1_000_000
 const OUTPUT_COST_PER_TOKEN = 0.4 / 1_000_000
@@ -23,68 +33,173 @@ const INITIAL_STATS: SessionStats = {
   totalOutputTokens: 0,
 }
 
+const INITIAL_Q_STATS: QuestionStats = { asked: 0, answered: 0, guardrail: 0 }
+
 export default function Page() {
-  const [events, setEvents] = useState<AppEvent[]>([])
+  return (
+    <ConversationProvider>
+      <PageContent />
+    </ConversationProvider>
+  )
+}
+
+function PageContent() {
+  const [entries, setEntries] = useState<LedgerEntry[]>([])
   const [stats, setStats] = useState<SessionStats>(INITIAL_STATS)
+  const [qStats, setQStats] = useState<QuestionStats>(INITIAL_Q_STATS)
   const [apiError, setApiError] = useState<string | null>(null)
+  const [lastScreenChangeMs, setLastScreenChangeMs] = useState(0)
+  const [lastQuestionAskedMs, setLastQuestionAskedMs] = useState(0)
 
   const sessionIdRef = useRef<string>('')
   const startTimeRef = useRef<number>(0)
   const inFlightRef = useRef(false)
+  const eventsRef = useRef<AppEvent[]>([])
+  const lastQuestionAskedMsRef = useRef(0)
 
-  const handleStop = useCallback(() => {
+  const handleVoiceError = useCallback((msg: string) => setApiError(msg), [])
+
+  const handleAnswered = useCallback((questionId: string, answerText: string) => {
+    const t = (Date.now() - startTimeRef.current) / 1000
+    setEntries((prev) => [
+      ...prev,
+      { type: 'answer', id: crypto.randomUUID(), t, questionId, text: answerText },
+    ])
+    setQStats((prev) => ({ ...prev, answered: prev.answered + 1 }))
+  }, [])
+
+  const handleScreenStop = useCallback(() => {
     inFlightRef.current = false
   }, [])
 
   const { videoRef, isSharing, error: captureError, startSharing, stopSharing } =
-    useScreenCapture(handleStop)
+    useScreenCapture(handleScreenStop)
 
-  const handleSample = useCallback((imageB64: string | null) => {
-    setStats((prev) => ({ ...prev, framesSeen: prev.framesSeen + 1 }))
+  const {
+    isConnected,
+    voiceMode,
+    isOffRecord,
+    isPendingAnswer,
+    lastUserSpeechMs,
+    startVoice,
+    stopVoice,
+    pushScreenEvents,
+    sendDirectorQuestion,
+  } = useVoiceSession({
+    sessionIdRef,
+    startTimeRef,
+    onError: handleVoiceError,
+    onAnswered: handleAnswered,
+  })
 
-    if (imageB64 === null || inFlightRef.current) return
+  useConversationClientTool('get_recent_screen_events', () => {
+    const recent = eventsRef.current.slice(-10)
+    if (recent.length === 0) return 'No events yet.'
+    return recent
+      .map(
+        (e) =>
+          `[${e.t.toFixed(1)}s] ${e.kind}: ${e.summary}` +
+          (e.field ? ` (${e.field})` : ''),
+      )
+      .join('\n')
+  })
 
-    inFlightRef.current = true
-    const t = (Date.now() - startTimeRef.current) / 1000
-
-    setStats((prev) => ({ ...prev, framesSent: prev.framesSent + 1 }))
-
-    postFrame({ session_id: sessionIdRef.current, t, image: imageB64 })
-      .then((result) => {
-        if (result.events.length > 0) {
-          setEvents((prev) => [...prev, ...result.events])
-        }
-        setStats((prev) => ({
-          ...prev,
-          totalLatencyMs: prev.totalLatencyMs + result.latency_ms,
-          requestCount: prev.requestCount + 1,
-          totalInputTokens: prev.totalInputTokens + result.usage.input_tokens,
-          totalOutputTokens: prev.totalOutputTokens + result.usage.output_tokens,
-        }))
-      })
-      .catch((err: unknown) => {
-        setApiError(err instanceof Error ? err.message : 'API request failed')
-      })
-      .finally(() => {
-        inFlightRef.current = false
-      })
+  const handleQuestion = useCallback((entry: QuestionEntry) => {
+    const now = Date.now()
+    lastQuestionAskedMsRef.current = now
+    setLastQuestionAskedMs(now)
+    setEntries((prev) => [...prev, { type: 'question', data: entry }])
+    setQStats((prev) => ({
+      asked: prev.asked + 1,
+      answered: prev.answered,
+      guardrail: entry.kind === 'guardrail' ? prev.guardrail + 1 : prev.guardrail,
+    }))
   }, [])
+
+  const handleSample = useCallback(
+    (imageB64: string | null) => {
+      setStats((prev) => ({ ...prev, framesSeen: prev.framesSeen + 1 }))
+
+      if (imageB64 !== null) {
+        setLastScreenChangeMs(Date.now())
+      }
+
+      if (imageB64 === null || inFlightRef.current || isOffRecord) return
+
+      inFlightRef.current = true
+      const t = (Date.now() - startTimeRef.current) / 1000
+
+      setStats((prev) => ({ ...prev, framesSent: prev.framesSent + 1 }))
+
+      postFrame({ session_id: sessionIdRef.current, t, image: imageB64 })
+        .then((result) => {
+          if (result.events.length > 0) {
+            eventsRef.current = [...eventsRef.current, ...result.events]
+            setEntries((prev) => [
+              ...prev,
+              ...result.events.map((e): LedgerEntry => ({ type: 'event', data: e })),
+            ])
+            pushScreenEvents(result.events)
+          }
+          setStats((prev) => ({
+            ...prev,
+            totalLatencyMs: prev.totalLatencyMs + result.latency_ms,
+            requestCount: prev.requestCount + 1,
+            totalInputTokens: prev.totalInputTokens + result.usage.input_tokens,
+            totalOutputTokens: prev.totalOutputTokens + result.usage.output_tokens,
+          }))
+        })
+        .catch((err: unknown) => {
+          setApiError(err instanceof Error ? err.message : 'API request failed')
+        })
+        .finally(() => {
+          inFlightRef.current = false
+        })
+    },
+    [isOffRecord, pushScreenEvents],
+  )
 
   useFrameSampler({
     videoRef,
-    enabled: isSharing,
+    enabled: isSharing && !isOffRecord,
     onSample: handleSample,
+  })
+
+  useDirectorLoop({
+    sessionIdRef,
+    enabled: isSharing && isConnected,
+    isOffRecord,
+    isSpeaking: voiceMode === 'speaking',
+    isPendingAnswer,
+    lastScreenChangeMs,
+    lastUserSpeechMs,
+    lastQuestionAskedMs,
+    startTimeRef,
+    onQuestion: handleQuestion,
+    sendDirectorQuestion,
   })
 
   const handleStart = useCallback(async () => {
     sessionIdRef.current = crypto.randomUUID()
     startTimeRef.current = Date.now()
     inFlightRef.current = false
-    setEvents([])
+    eventsRef.current = []
+    lastQuestionAskedMsRef.current = 0
+    setEntries([])
     setStats(INITIAL_STATS)
+    setQStats(INITIAL_Q_STATS)
     setApiError(null)
+    setLastScreenChangeMs(0)
+    setLastQuestionAskedMs(0)
     await startSharing()
-  }, [startSharing])
+    await startVoice()
+  }, [startSharing, startVoice])
+
+  const handleStop = useCallback(() => {
+    stopSharing()
+    stopVoice()
+    inFlightRef.current = false
+  }, [stopSharing, stopVoice])
 
   const estimatedCostUsd =
     stats.totalInputTokens * INPUT_COST_PER_TOKEN +
@@ -102,7 +217,12 @@ export default function Page() {
       className="flex flex-col overflow-hidden"
       style={{ height: '100dvh', backgroundColor: 'var(--color-paper)' }}
     >
-      <Header isSharing={isSharing} startTimeRef={startTimeRef} />
+      <Header
+        isSharing={isSharing}
+        startTimeRef={startTimeRef}
+        voiceMode={voiceMode}
+        isOffRecord={isOffRecord}
+      />
 
       <div className="flex flex-col lg:flex-row flex-1 overflow-hidden min-h-0">
         <main
@@ -130,7 +250,7 @@ export default function Page() {
               </button>
             ) : (
               <button
-                onClick={stopSharing}
+                onClick={handleStop}
                 className="px-3 py-1.5 text-sm font-medium"
                 style={{
                   border: '1px solid var(--color-rule)',
@@ -155,6 +275,7 @@ export default function Page() {
             framesSkipped={framesSkipped}
             avgLatencyMs={avgLatencyMs}
             estimatedCostUsd={estimatedCostUsd}
+            questionStats={qStats}
             visible={statsVisible}
           />
         </main>
@@ -163,7 +284,7 @@ export default function Page() {
           className="flex flex-col overflow-hidden shrink-0"
           style={{ width: '320px' }}
         >
-          <EventLedger events={events} />
+          <EventLedger entries={entries} />
         </aside>
       </div>
     </div>

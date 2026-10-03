@@ -2,9 +2,13 @@
 
 import { useEffect, useState } from 'react'
 
+import type { VoiceMode } from '@/lib/types'
+
 interface Props {
   isSharing: boolean
   startTimeRef: React.RefObject<number>
+  voiceMode: VoiceMode
+  isOffRecord: boolean
 }
 
 function formatElapsed(seconds: number): string {
@@ -13,7 +17,15 @@ function formatElapsed(seconds: number): string {
   return `${mm}:${ss}`
 }
 
-export function Header({ isSharing, startTimeRef }: Props) {
+const VOICE_LABELS: Record<VoiceMode, string> = {
+  idle: '',
+  listening: 'listening',
+  speaking: 'speaking',
+  waiting: 'waiting for answer',
+  'off-record': 'off the record',
+}
+
+export function Header({ isSharing, startTimeRef, voiceMode, isOffRecord }: Props) {
   const [elapsed, setElapsed] = useState(0)
 
   useEffect(() => {
@@ -27,6 +39,9 @@ export function Header({ isSharing, startTimeRef }: Props) {
     }
   }, [isSharing, startTimeRef])
 
+  const voiceLabel = VOICE_LABELS[voiceMode]
+  const isOffRecordActive = isOffRecord || voiceMode === 'off-record'
+
   return (
     <header
       style={{ borderBottom: '1px solid var(--color-rule)' }}
@@ -39,20 +54,43 @@ export function Header({ isSharing, startTimeRef }: Props) {
         The AI Apprentice
       </h1>
 
-      {isSharing && (
-        <div className="flex items-center gap-2">
+      <div className="flex items-center gap-4">
+        {isOffRecordActive && (
           <span
-            className="live-dot inline-block w-2 h-2 rounded-full"
-            style={{ backgroundColor: 'var(--color-signal)' }}
-          />
-          <span
-            className="text-sm tabular-nums"
-            style={{ color: 'var(--color-graphite)' }}
+            className="text-xs px-2 py-0.5"
+            style={{
+              color: 'var(--color-flag)',
+              border: '1px solid var(--color-flag)',
+              borderRadius: '3px',
+            }}
           >
-            {formatElapsed(elapsed)}
+            off the record
           </span>
-        </div>
-      )}
+        )}
+
+        {isSharing && (
+          <div className="flex items-center gap-2">
+            <span
+              className="live-dot inline-block w-2 h-2 rounded-full"
+              style={{ backgroundColor: 'var(--color-signal)' }}
+            />
+            <span
+              className="text-sm tabular-nums"
+              style={{ color: 'var(--color-graphite)' }}
+            >
+              {formatElapsed(elapsed)}
+            </span>
+            {voiceLabel && (
+              <span
+                className="text-xs"
+                style={{ color: 'var(--color-graphite)' }}
+              >
+                · {voiceLabel}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
     </header>
   )
 }

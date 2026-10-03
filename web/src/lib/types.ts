@@ -44,3 +44,59 @@ export interface SessionStats {
   totalInputTokens: number
   totalOutputTokens: number
 }
+
+export type TranscriptRole = 'user' | 'agent'
+
+export interface TranscriptEntry {
+  role: TranscriptRole
+  message: string
+  t: number
+}
+
+export type QuestionKind = 'reason' | 'limit' | 'exception' | 'escalation' | 'guardrail'
+
+export interface QuestionEntry {
+  id: string
+  t: number
+  kind: QuestionKind
+  text: string
+  anchorEventId: string
+  answered: boolean
+  answerText: string | null
+}
+
+export type LedgerEntry =
+  | { type: 'event'; data: AppEvent }
+  | { type: 'question'; data: QuestionEntry }
+  | { type: 'answer'; id: string; t: number; questionId: string; text: string }
+
+export type VoiceMode = 'idle' | 'listening' | 'speaking' | 'waiting' | 'off-record'
+
+export interface QuestionStats {
+  asked: number
+  answered: number
+  guardrail: number
+}
+
+export interface DirectorDecideRequest {
+  session_id: string
+  elapsed_seconds: number
+}
+
+export interface DirectorDecideResponse {
+  should_ask: boolean
+  kind: QuestionKind
+  anchor_event_id: string
+  question: string
+  why: string
+  rejected_reason: string | null
+}
+
+export interface TranscriptRequest {
+  entries: TranscriptEntry[]
+}
+
+export interface TranscriptResponse {
+  session_id: string
+  entries: TranscriptEntry[]
+}
