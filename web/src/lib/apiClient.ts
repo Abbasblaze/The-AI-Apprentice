@@ -1,6 +1,7 @@
 import type {
   ApiStatus,
   AppEvent,
+  StorageInfo,
   CheckVerdict,
   DebriefAnswerResponse,
   DebriefReplyResponse,
@@ -215,6 +216,10 @@ export async function exportMap(sessionId: string, format: 'markdown' | 'json'):
 
 export async function fetchApiStatus(): Promise<ApiStatus> {
   return apiFetch<ApiStatus>('/api/status')
+}
+
+export async function fetchStorage(): Promise<StorageInfo> {
+  return apiFetch<StorageInfo>('/api/storage')
 }
 
 export async function postOffRecordPeriod(

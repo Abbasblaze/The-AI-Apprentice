@@ -74,6 +74,7 @@ export type LedgerEntry =
   | { type: 'event'; data: AppEvent }
   | { type: 'question'; data: QuestionEntry }
   | { type: 'answer'; id: string; t: number; questionId: string; text: string }
+  | { type: 'transcript'; id: string; t: number; role: 'user' | 'agent'; text: string }
   | { type: 'off-record-gap'; id: string; start_t: number; end_t: number | null }
   | {
       type: 'forget-that'
@@ -352,6 +353,14 @@ export interface ApiStatus {
   tesseract: boolean
   confirmed_map: boolean
   confirmed_map_session_id: string | null
+}
+
+export interface StorageInfo {
+  data_dir: string
+  session_count: number
+  tutor_session_count: number
+  total_size_bytes: number
+  gitignored: boolean
 }
 
 export interface TutorSession {

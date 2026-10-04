@@ -3,8 +3,8 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 
-import { fetchSessions, listTutorSessions } from '@/lib/apiClient'
-import type { SessionSummary, TutorSession } from '@/lib/types'
+import { fetchSessions, fetchStorage, listTutorSessions } from '@/lib/apiClient'
+import type { SessionSummary, StorageInfo, TutorSession } from '@/lib/types'
 
 function formatDate(unixSec: number): string {
   return new Date(unixSec * 1000).toLocaleString('en-GB', {
@@ -101,9 +101,16 @@ function MasteryBar({ mastered, total }: { mastered: number; total: number }) {
   )
 }
 
+function fmtBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
 export default function SessionsPage() {
   const [sessions, setSessions] = useState<SessionSummary[] | null>(null)
   const [tutorSessions, setTutorSessions] = useState<TutorSession[] | null>(null)
+  const [storageInfo, setStorageInfo] = useState<StorageInfo | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [expandedTutorId, setExpandedTutorId] = useState<string | null>(null)
 
@@ -116,6 +123,9 @@ export default function SessionsPage() {
     listTutorSessions()
       .then(setTutorSessions)
       .catch(() => setTutorSessions([]))
+    fetchStorage()
+      .then(setStorageInfo)
+      .catch(() => {})
   }, [])
 
   return (
@@ -580,6 +590,77 @@ export default function SessionsPage() {
             )}
           </section>
         </div>
+
+        {/* ── Storage visibility ── */}
+        {storageInfo && (
+          <div
+            style={{
+              maxWidth: '900px',
+              margin: '0 auto',
+              padding: '0 20px 32px',
+            }}
+          >
+            <div
+              style={{
+                borderTop: '1px solid var(--color-border)',
+                paddingTop: '24px',
+              }}
+            >
+              <div
+                style={{
+                  fontSize: '10px',
+                  fontWeight: 700,
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                  color: 'var(--color-ink-muted)',
+                  marginBottom: '12px',
+                }}
+              >
+                Where your data is stored
+              </div>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+                  gap: '12px',
+                  marginBottom: '12px',
+                }}
+              >
+                {[
+                  { label: 'Sessions', value: String(storageInfo.session_count) },
+                  { label: 'Tutor sessions', value: String(storageInfo.tutor_session_count) },
+                  { label: 'Total on disk', value: fmtBytes(storageInfo.total_size_bytes) },
+                  { label: 'Git-ignored', value: storageInfo.gitignored ? 'Yes' : 'No' },
+                ].map((m) => (
+                  <div
+                    key={m.label}
+                    style={{
+                      background: 'var(--color-panel)',
+                      border: '1px solid var(--color-border)',
+                      borderRadius: '8px',
+                      padding: '10px 14px',
+                    }}
+                  >
+                    <div style={{ fontSize: '10px', color: 'var(--color-ink-muted)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
+                      {m.label}
+                    </div>
+                    <div style={{ fontSize: '18px', fontWeight: 600, fontFamily: 'var(--font-mono)', color: 'var(--color-ink)' }}>
+                      {m.value}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p style={{ fontSize: '12px', color: 'var(--color-ink-muted)', margin: 0, lineHeight: 1.6 }}>
+                Path: <code style={{ fontFamily: 'var(--font-mono)', fontSize: '11px' }}>{storageInfo.data_dir}</code>
+                <br />
+                Screen frames are sent to OpenAI for analysis and are not stored permanently.
+                Voice audio is processed by ElevenLabs and is not stored locally.
+                All session data on disk is in <code style={{ fontFamily: 'var(--font-mono)', fontSize: '11px' }}>api/data/</code>{' '}
+                which is ignored by git.
+              </p>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   )

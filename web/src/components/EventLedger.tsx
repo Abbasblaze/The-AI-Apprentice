@@ -316,6 +316,57 @@ function OffRecordGapRow({
   )
 }
 
+function TranscriptRow({
+  entry,
+}: {
+  entry: Extract<LedgerEntry, { type: 'transcript' }>
+}) {
+  const isUser = entry.role === 'user'
+  return (
+    <div className="event-entry flex">
+      <div
+        style={{
+          width: '52px',
+          flexShrink: 0,
+          paddingTop: '10px',
+          paddingRight: '10px',
+          textAlign: 'right',
+          fontFamily: 'var(--font-mono, monospace)',
+          fontSize: '11px',
+          color: '#4a5a78',
+        }}
+      >
+        {formatTime(entry.t)}
+      </div>
+      <div
+        style={{
+          flex: 1,
+          paddingTop: '8px',
+          paddingBottom: '8px',
+          paddingLeft: '13px',
+          paddingRight: '16px',
+          borderBottom: '1px solid color-mix(in srgb, var(--color-border) 50%, transparent)',
+          borderLeft: isUser ? '2px solid var(--color-signal)' : '1px solid var(--color-border)',
+        }}
+      >
+        <span
+          style={{
+            fontSize: '10px',
+            fontWeight: 600,
+            letterSpacing: '0.06em',
+            textTransform: 'uppercase',
+            color: isUser ? 'var(--color-signal)' : '#4a5a78',
+            marginRight: '6px',
+          }}
+        >
+          {isUser ? 'you' : 'agent'}
+        </span>
+        <span style={{ fontSize: '13px', color: '#c8d0de' }}>{entry.text}</span>
+      </div>
+    </div>
+  )
+}
+
 function ForgetThatRow({
   entry,
 }: {
@@ -443,6 +494,8 @@ export function EventLedger({ entries }: Props) {
               if (entry.type === 'event') return <EventRow key={entry.data.id} entry={entry} />
               if (entry.type === 'question')
                 return <QuestionRow key={entry.data.id} entry={entry} />
+              if (entry.type === 'transcript')
+                return <TranscriptRow key={entry.id} entry={entry} />
               if (entry.type === 'off-record-gap')
                 return <OffRecordGapRow key={entry.id} entry={entry} />
               if (entry.type === 'forget-that')

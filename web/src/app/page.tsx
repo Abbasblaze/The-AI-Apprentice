@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import { ConversationProvider, useConversationClientTool } from '@elevenlabs/react'
+import { ConversationProvider, useConversationClientTool, useConversationControls } from '@elevenlabs/react'
 
 import { EventLedger } from '@/components/EventLedger'
 import { Header } from '@/components/Header'
@@ -21,6 +21,7 @@ import {
   saveMaskRegions,
 } from '@/lib/apiClient'
 import { ERP_CHANNEL } from '@/lib/erp/broadcast'
+import { BAR_COUNT, calcFilledBars, isUnheardSpeech } from '@/lib/voiceUtils'
 import type { ErpBroadcastMessage } from '@/lib/erp/types'
 import type {
   AppEvent,
@@ -34,9 +35,12 @@ import type {
 const INPUT_COST_PER_TOKEN = 0.05 / 1_000_000
 const OUTPUT_COST_PER_TOKEN = 0.4 / 1_000_000
 
+const TEST_DURATION_MS = 3000
+
 function entryTime(entry: LedgerEntry): number {
   if (entry.type === 'answer' || entry.type === 'forget-that') return entry.t
   if (entry.type === 'off-record-gap') return entry.start_t
+  if (entry.type === 'transcript') return entry.t
   return entry.data.t
 }
 
@@ -72,6 +76,215 @@ const INITIAL_STATS: SessionStats = {
 }
 
 const INITIAL_Q_STATS: QuestionStats = { asked: 0, answered: 0, guardrail: 0 }
+
+function LevelMeter({ level }: { level: number }) {
+  const filled = calcFilledBars(level, BAR_COUNT)
+  return (
+    <div style={{ display: 'flex', gap: '1px', alignItems: 'center', height: '10px' }}>
+      {Array.from({ length: BAR_COUNT }, (_, i) => (
+        <span
+          key={i}
+          style={{
+            display: 'inline-block',
+            width: '2px',
+            height: '10px',
+            backgroundColor: i < filled ? 'var(--color-signal)' : 'var(--color-border)',
+            transition: 'background-color 0.05s',
+          }}
+        />
+      ))}
+    </div>
+  )
+}
+
+interface VoiceCheckPanelProps {
+  isConnected: boolean
+  voiceMode: string
+  lastUserSpeechMs: number
+  lastUserTranscriptMs: number
+  lastUserTranscriptText: string
+}
+
+function VoiceCheckPanel({
+  isConnected,
+  voiceMode,
+  lastUserSpeechMs,
+  lastUserTranscriptMs,
+  lastUserTranscriptText,
+}: VoiceCheckPanelProps) {
+  const { getInputVolume } = useConversationControls()
+  const [level, setLevel] = useState(0)
+  const [testing, setTesting] = useState(false)
+  const [testResult, setTestResult] = useState<string | null>(null)
+  const [now, setNow] = useState(Date.now)
+  const rafRef = useRef<number>(0)
+
+  useEffect(() => {
+    if (!isConnected) return
+    const tick = () => {
+      setLevel(getInputVolume())
+      rafRef.current = requestAnimationFrame(tick)
+    }
+    rafRef.current = requestAnimationFrame(tick)
+    return () => {
+      cancelAnimationFrame(rafRef.current)
+      setLevel(0)
+    }
+  }, [isConnected, getInputVolume])
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 500)
+    return () => clearInterval(id)
+  }, [])
+
+  const runTest = useCallback(async () => {
+    setTesting(true)
+    setTestResult(null)
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const ctx = new AudioContext()
+      const analyser = ctx.createAnalyser()
+      analyser.fftSize = 256
+      ctx.createMediaStreamSource(stream).connect(analyser)
+      const buf = new Uint8Array(analyser.frequencyBinCount)
+      let peak = 0
+      const start = Date.now()
+
+      await new Promise<void>((resolve) => {
+        const tick = () => {
+          analyser.getByteFrequencyData(buf)
+          const avg = buf.reduce((a, b) => a + b, 0) / buf.length
+          if (avg > peak) peak = avg
+          if (Date.now() - start < TEST_DURATION_MS) requestAnimationFrame(tick)
+          else resolve()
+        }
+        requestAnimationFrame(tick)
+      })
+
+      stream.getTracks().forEach((t) => t.stop())
+      await ctx.close()
+      setTestResult(
+        peak > 5
+          ? 'Sound detected'
+          : 'No sound detected. Check your input device and browser permission.',
+      )
+    } catch (err) {
+      const name = err instanceof Error ? err.name : ''
+      if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+        setTestResult('Microphone access denied. Allow microphone access in your browser.')
+      } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+        setTestResult('No microphone found. Connect a microphone and try again.')
+      } else {
+        setTestResult('Error: ' + (err instanceof Error ? err.message : String(err)))
+      }
+    }
+    setTesting(false)
+  }, [])
+
+  const showUnheard = isUnheardSpeech(isConnected, lastUserSpeechMs, lastUserTranscriptMs, now)
+
+  const statusText = isConnected
+    ? voiceMode === 'idle'
+      ? 'connected'
+      : voiceMode
+    : 'not connected'
+
+  return (
+    <div
+      style={{
+        borderTop: '1px solid var(--color-border)',
+        padding: '8px 16px',
+        fontSize: '12px',
+        color: 'var(--color-ink-muted)',
+      }}
+    >
+      <div
+        style={{
+          fontSize: '10px',
+          fontWeight: 700,
+          letterSpacing: '0.08em',
+          textTransform: 'uppercase',
+          color: 'var(--color-ink-muted)',
+          marginBottom: '6px',
+        }}
+      >
+        Voice check
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '5px' }}>
+        <span style={{ flexShrink: 0 }}>Mic</span>
+        <LevelMeter level={level} />
+        <span
+          style={{
+            flexShrink: 0,
+            color: isConnected ? 'var(--color-signal)' : 'var(--color-ink-muted)',
+          }}
+        >
+          {statusText}
+        </span>
+      </div>
+
+      {lastUserTranscriptText && (
+        <div
+          style={{
+            marginBottom: '5px',
+            color: 'var(--color-ink-muted)',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            maxWidth: '100%',
+          }}
+        >
+          <span style={{ color: 'var(--color-ink-muted)', marginRight: '4px' }}>Last heard:</span>
+          <span style={{ color: 'var(--color-ink)' }}>{lastUserTranscriptText}</span>
+        </div>
+      )}
+
+      {showUnheard && (
+        <div
+          style={{
+            marginBottom: '5px',
+            color: 'var(--color-flag)',
+            lineHeight: 1.4,
+          }}
+        >
+          The agent has not received your speech yet. Check your microphone input device
+          and browser permission, or refresh the page.
+        </div>
+      )}
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <button
+          onClick={runTest}
+          disabled={testing}
+          style={{
+            fontSize: '11px',
+            padding: '3px 10px',
+            border: '1px solid var(--color-border)',
+            borderRadius: '4px',
+            background: 'transparent',
+            color: 'var(--color-ink-muted)',
+            cursor: testing ? 'wait' : 'pointer',
+            opacity: testing ? 0.6 : 1,
+          }}
+        >
+          {testing ? `Testing… ${Math.ceil(TEST_DURATION_MS / 1000)}s` : 'Test microphone'}
+        </button>
+        {testResult && (
+          <span
+            style={{
+              color: testResult.startsWith('Sound detected')
+                ? 'var(--color-ok)'
+                : 'var(--color-flag)',
+            }}
+          >
+            {testResult}
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
 
 export default function Page() {
   return (
@@ -168,6 +381,9 @@ function PageContent() {
     isOffRecord,
     isPendingAnswer,
     lastUserSpeechMs,
+    lastUserTranscriptMs,
+    lastUserTranscriptText,
+    checkMic,
     startVoice,
     stopVoice,
     pushScreenEvents,
@@ -331,6 +547,12 @@ function PageContent() {
   })
 
   const handleStart = useCallback(async () => {
+    const micErr = await checkMic()
+    if (micErr) {
+      setApiError(micErr)
+      return
+    }
+
     sessionIdRef.current = crypto.randomUUID()
     startTimeRef.current = Date.now()
     inFlightRef.current = false
@@ -346,7 +568,7 @@ function PageContent() {
     openGapIdRef.current = null
     await startSharing()
     await startVoice()
-  }, [startSharing, startVoice])
+  }, [checkMic, startSharing, startVoice])
 
   const handleStop = useCallback(() => {
     stopSharing()
@@ -455,6 +677,14 @@ function PageContent() {
               </p>
             )}
           </div>
+
+          <VoiceCheckPanel
+            isConnected={isConnected}
+            voiceMode={voiceMode}
+            lastUserSpeechMs={lastUserSpeechMs}
+            lastUserTranscriptMs={lastUserTranscriptMs}
+            lastUserTranscriptText={lastUserTranscriptText}
+          />
 
           <StatsStrip
             framesSeen={stats.framesSeen}

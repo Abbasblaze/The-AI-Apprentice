@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useConversation } from '@elevenlabs/react'
 
 import { fetchSignedUrl, postTranscriptEntries } from '@/lib/apiClient'
+import { PENDING_ANSWER_TIMEOUT_MS, detectVoiceCommand } from '@/lib/voiceUtils'
 import type { AppEvent, TranscriptEntry, VoiceMode } from '@/lib/types'
 
 const CONTEXT_BATCH_MS = 2000
@@ -26,6 +27,9 @@ interface UseVoiceSessionResult {
   isOffRecord: boolean
   isPendingAnswer: boolean
   lastUserSpeechMs: number
+  lastUserTranscriptMs: number
+  lastUserTranscriptText: string
+  checkMic: () => Promise<string | null>
   startVoice: () => Promise<void>
   stopVoice: () => void
   pushScreenEvents: (events: AppEvent[]) => void
@@ -47,8 +51,11 @@ export function useVoiceSession({
   const [isOffRecord, setIsOffRecord] = useState(false)
   const [isPendingAnswer, setIsPendingAnswer] = useState(false)
   const [lastUserSpeechMs, setLastUserSpeechMs] = useState(0)
+  const [lastUserTranscriptMs, setLastUserTranscriptMs] = useState(0)
+  const [lastUserTranscriptText, setLastUserTranscriptText] = useState('')
 
   const pendingRef = useRef<{ questionId: string; text: string } | null>(null)
+  const pendingAnswerSinceRef = useRef<number>(0)
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingContextRef = useRef<AppEvent[]>([])
   const contextTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -59,17 +66,9 @@ export function useVoiceSession({
   const onOffRecordChangeRef = useRef(onOffRecordChange)
   const onForgetThatRef = useRef(onForgetThat)
 
-  useEffect(() => {
-    onAnsweredRef.current = onAnswered
-  }, [onAnswered])
-
-  useEffect(() => {
-    onOffRecordChangeRef.current = onOffRecordChange
-  }, [onOffRecordChange])
-
-  useEffect(() => {
-    onForgetThatRef.current = onForgetThat
-  }, [onForgetThat])
+  useEffect(() => { onAnsweredRef.current = onAnswered }, [onAnswered])
+  useEffect(() => { onOffRecordChangeRef.current = onOffRecordChange }, [onOffRecordChange])
+  useEffect(() => { onForgetThatRef.current = onForgetThat }, [onForgetThat])
 
   const elapsed = useCallback(
     () => (Date.now() - startTimeRef.current) / 1000,
@@ -96,10 +95,27 @@ export function useVoiceSession({
     const pending = pendingRef.current
     if (!pending) return
     pendingRef.current = null
+    pendingAnswerSinceRef.current = 0
     setIsPendingAnswer(false)
     setVoiceMode('listening')
     onAnsweredRef.current(pending.questionId, pending.text)
   }, [])
+
+  useEffect(() => {
+    if (!isPendingAnswer) {
+      pendingAnswerSinceRef.current = 0
+      return
+    }
+    const id = setTimeout(() => {
+      if (pendingRef.current) {
+        pendingRef.current = null
+        pendingAnswerSinceRef.current = 0
+        setIsPendingAnswer(false)
+        if (isConnectedRef.current) setVoiceMode('listening')
+      }
+    }, PENDING_ANSWER_TIMEOUT_MS)
+    return () => clearTimeout(id)
+  }, [isPendingAnswer])
 
   const { startSession, endSession, sendContextualUpdate, sendUserMessage } = useConversation({
     onConnect: useCallback(() => {
@@ -116,6 +132,7 @@ export function useVoiceSession({
       isOffRecordRef.current = false
       setIsPendingAnswer(false)
       pendingRef.current = null
+      pendingAnswerSinceRef.current = 0
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current)
       flushTranscript()
     }, [flushTranscript]),
@@ -126,9 +143,12 @@ export function useVoiceSession({
         if (
           lower.includes('microphone') ||
           lower.includes('permission') ||
-          lower.includes('notallowed')
+          lower.includes('notallowed') ||
+          lower.includes('not allowed')
         ) {
-          onError('Microphone access denied. Please allow microphone access in your browser.')
+          onError('Microphone access denied. Allow microphone access in your browser and try again.')
+        } else if (lower.includes('notfound') || lower.includes('not found')) {
+          onError('No microphone found. Connect a microphone and try again.')
         } else {
           onError(`Voice error: ${msg}`)
         }
@@ -148,20 +168,25 @@ export function useVoiceSession({
         }
 
         if (props.role === 'user') {
-          const lower = props.message.toLowerCase()
-          if (lower.includes('off the record')) {
+          setLastUserTranscriptMs(Date.now())
+          setLastUserTranscriptText(props.message)
+
+          const cmd = detectVoiceCommand(props.message)
+          if (cmd === 'off-record') {
             setIsOffRecord(true)
             isOffRecordRef.current = true
             onOffRecordChangeRef.current(true, elapsed())
+            queueTranscriptEntry(entry)
             return
           }
-          if (lower.includes('back on the record')) {
+          if (cmd === 'on-record') {
             setIsOffRecord(false)
             isOffRecordRef.current = false
             onOffRecordChangeRef.current(false, elapsed())
           }
-          if (lower.includes('forget that')) {
+          if (cmd === 'forget') {
             onForgetThatRef.current()
+            queueTranscriptEntry(entry)
             return
           }
 
@@ -185,7 +210,7 @@ export function useVoiceSession({
 
     onModeChange: useCallback((prop: { mode: 'speaking' | 'listening' }) => {
       setVoiceMode((prev) => {
-        if (prev === 'waiting' || prev === 'off-record') return prev
+        if (prev === 'off-record') return prev
         return prop.mode
       })
     }, []),
@@ -204,6 +229,23 @@ export function useVoiceSession({
       setVoiceMode((prev) => (prev === 'off-record' ? 'listening' : prev))
     }
   }, [isOffRecord])
+
+  const checkMic = useCallback(async (): Promise<string | null> => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      stream.getTracks().forEach((t) => t.stop())
+      return null
+    } catch (err) {
+      const name = err instanceof Error ? err.name : ''
+      if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+        return 'Microphone access denied. Allow microphone access in your browser and try again.'
+      }
+      if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+        return 'No microphone found. Connect a microphone and try again.'
+      }
+      return `Microphone unavailable: ${err instanceof Error ? err.message : String(err)}`
+    }
+  }, [])
 
   const startVoice = useCallback(async () => {
     try {
@@ -249,6 +291,7 @@ export function useVoiceSession({
     (questionId: string, question: string) => {
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current)
       pendingRef.current = { questionId, text: '' }
+      pendingAnswerSinceRef.current = Date.now()
       setIsPendingAnswer(true)
       setVoiceMode('waiting')
       sendUserMessage(`[DIRECTOR] ${question}`)
@@ -274,6 +317,9 @@ export function useVoiceSession({
     isOffRecord,
     isPendingAnswer,
     lastUserSpeechMs,
+    lastUserTranscriptMs,
+    lastUserTranscriptText,
+    checkMic,
     startVoice,
     stopVoice,
     pushScreenEvents,

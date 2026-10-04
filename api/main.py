@@ -19,6 +19,7 @@ from app.routers import (
     privacy,
     sessions,
     status,
+    storage,
     transcript,
     tutor,
     voice,
@@ -83,3 +84,4 @@ app.include_router(tutor.router, prefix="/api")
 app.include_router(privacy.router, prefix="/api")
 app.include_router(export.router, prefix="/api")
 app.include_router(status.router, prefix="/api")
+app.include_router(storage.router, prefix="/api")
