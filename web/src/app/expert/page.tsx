@@ -21,7 +21,7 @@ import {
   saveMaskRegions,
 } from '@/lib/apiClient'
 import { ERP_CHANNEL } from '@/lib/erp/broadcast'
-import { BAR_COUNT, calcFilledBars, isUnheardSpeech } from '@/lib/voiceUtils'
+import { BAR_COUNT, MIC_LEVEL_THRESHOLD, calcFilledBars, shouldWarnNoTranscript } from '@/lib/voiceUtils'
 import type { ErpBroadcastMessage } from '@/lib/erp/types'
 import type {
   AppEvent,
@@ -34,8 +34,6 @@ import type {
 
 const INPUT_COST_PER_TOKEN = 0.05 / 1_000_000
 const OUTPUT_COST_PER_TOKEN = 0.4 / 1_000_000
-
-const TEST_DURATION_MS = 3000
 
 function entryTime(entry: LedgerEntry): number {
   if (entry.type === 'answer' || entry.type === 'forget-that') return entry.t
@@ -77,210 +75,170 @@ const INITIAL_STATS: SessionStats = {
 
 const INITIAL_Q_STATS: QuestionStats = { asked: 0, answered: 0, guardrail: 0 }
 
-function LevelMeter({ level }: { level: number }) {
-  const filled = calcFilledBars(level, BAR_COUNT)
-  return (
-    <div style={{ display: 'flex', gap: '1px', alignItems: 'center', height: '10px' }}>
-      {Array.from({ length: BAR_COUNT }, (_, i) => (
-        <span
-          key={i}
-          style={{
-            display: 'inline-block',
-            width: '2px',
-            height: '10px',
-            backgroundColor: i < filled ? 'var(--color-signal)' : 'var(--color-border)',
-            transition: 'background-color 0.05s',
-          }}
-        />
-      ))}
-    </div>
-  )
-}
-
-interface VoiceCheckPanelProps {
+interface VoiceStatusBarProps {
   isConnected: boolean
   voiceMode: string
-  lastUserSpeechMs: number
-  lastUserTranscriptMs: number
-  lastUserTranscriptText: string
+  permission: PermissionState
+  devices: MediaDeviceInfo[]
+  selectedDeviceId: string
+  onDeviceChange: (id: string) => void
+  lastTranscriptMs: number
+  lastTranscriptText: string
 }
 
-function VoiceCheckPanel({
+function VoiceStatusBar({
   isConnected,
   voiceMode,
-  lastUserSpeechMs,
-  lastUserTranscriptMs,
-  lastUserTranscriptText,
-}: VoiceCheckPanelProps) {
+  permission,
+  devices,
+  selectedDeviceId,
+  onDeviceChange,
+  lastTranscriptMs,
+  lastTranscriptText,
+}: VoiceStatusBarProps) {
   const { getInputVolume } = useConversationControls()
   const [level, setLevel] = useState(0)
-  const [testing, setTesting] = useState(false)
-  const [testResult, setTestResult] = useState<string | null>(null)
-  const [now, setNow] = useState(Date.now)
+  const [showNoTranscript, setShowNoTranscript] = useState(false)
+  const micActiveRef = useRef(0)
+  const lastSilentRef = useRef(0)
+  const lastTranscriptMsRef = useRef(lastTranscriptMs)
   const rafRef = useRef<number>(0)
+
+  useEffect(() => {
+    lastTranscriptMsRef.current = lastTranscriptMs
+  }, [lastTranscriptMs])
 
   useEffect(() => {
     if (!isConnected) return
     const tick = () => {
-      setLevel(getInputVolume())
+      const v = getInputVolume()
+      const now = Date.now()
+      setLevel(v)
+      if (v > MIC_LEVEL_THRESHOLD) {
+        lastSilentRef.current = 0
+        if (micActiveRef.current === 0) micActiveRef.current = now
+      } else {
+        if (lastSilentRef.current === 0) lastSilentRef.current = now
+        if (now - lastSilentRef.current > 500) micActiveRef.current = 0
+      }
+      setShowNoTranscript(
+        shouldWarnNoTranscript(true, micActiveRef.current, lastTranscriptMsRef.current, now),
+      )
       rafRef.current = requestAnimationFrame(tick)
     }
     rafRef.current = requestAnimationFrame(tick)
     return () => {
       cancelAnimationFrame(rafRef.current)
       setLevel(0)
+      setShowNoTranscript(false)
+      micActiveRef.current = 0
+      lastSilentRef.current = 0
     }
   }, [isConnected, getInputVolume])
 
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 500)
-    return () => clearInterval(id)
-  }, [])
-
-  const runTest = useCallback(async () => {
-    setTesting(true)
-    setTestResult(null)
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      const ctx = new AudioContext()
-      const analyser = ctx.createAnalyser()
-      analyser.fftSize = 256
-      ctx.createMediaStreamSource(stream).connect(analyser)
-      const buf = new Uint8Array(analyser.frequencyBinCount)
-      let peak = 0
-      const start = Date.now()
-
-      await new Promise<void>((resolve) => {
-        const tick = () => {
-          analyser.getByteFrequencyData(buf)
-          const avg = buf.reduce((a, b) => a + b, 0) / buf.length
-          if (avg > peak) peak = avg
-          if (Date.now() - start < TEST_DURATION_MS) requestAnimationFrame(tick)
-          else resolve()
-        }
-        requestAnimationFrame(tick)
-      })
-
-      stream.getTracks().forEach((t) => t.stop())
-      await ctx.close()
-      setTestResult(
-        peak > 5
-          ? 'Sound detected'
-          : 'No sound detected. Check your input device and browser permission.',
-      )
-    } catch (err) {
-      const name = err instanceof Error ? err.name : ''
-      if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
-        setTestResult('Microphone access denied. Allow microphone access in your browser.')
-      } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
-        setTestResult('No microphone found. Connect a microphone and try again.')
-      } else {
-        setTestResult('Error: ' + (err instanceof Error ? err.message : String(err)))
-      }
-    }
-    setTesting(false)
-  }, [])
-
-  const showUnheard = isUnheardSpeech(isConnected, lastUserSpeechMs, lastUserTranscriptMs, now)
-
-  const statusText = isConnected
-    ? voiceMode === 'idle'
-      ? 'connected'
-      : voiceMode
-    : 'not connected'
+  const filled = calcFilledBars(level, BAR_COUNT)
 
   return (
     <div
       style={{
-        borderTop: '1px solid var(--color-border)',
-        padding: '10px 16px',
+        height: '36px',
+        padding: '0 16px',
+        borderBottom: '1px solid var(--color-border)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '10px',
         background: 'var(--color-panel)',
+        flexShrink: 0,
+        overflow: 'hidden',
       }}
     >
-      <div className="glass-card" style={{ padding: '10px 14px' }}>
-        <div
+      <span
+        className={`chip ${
+          permission === 'granted'
+            ? 'chip-ok'
+            : permission === 'denied'
+              ? 'chip-flag'
+              : 'chip-neutral'
+        }`}
+        style={{ fontSize: '11px', flexShrink: 0 }}
+      >
+        {permission === 'granted' ? 'mic on' : permission === 'denied' ? 'mic blocked' : 'mic —'}
+      </span>
+
+      <span
+        className={`chip ${isConnected ? 'chip-ok' : 'chip-neutral'}`}
+        style={{ fontSize: '11px', flexShrink: 0 }}
+      >
+        {isConnected ? voiceMode : 'not connected'}
+      </span>
+
+      {devices.length > 0 && (
+        <select
+          value={selectedDeviceId}
+          onChange={(e) => onDeviceChange(e.target.value)}
+          disabled={isConnected}
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            marginBottom: '8px',
+            fontSize: '11px',
+            background: 'var(--color-surface)',
+            border: '1px solid var(--color-border)',
+            borderRadius: '4px',
+            color: isConnected ? 'var(--color-ink-muted)' : 'var(--color-ink)',
+            padding: '2px 6px',
+            cursor: isConnected ? 'default' : 'pointer',
+            maxWidth: '180px',
           }}
         >
-          <span className="label-upper">Voice</span>
-          <span className={`chip ${isConnected ? 'chip-ok' : 'chip-neutral'}`}>
-            {statusText}
-          </span>
-        </div>
+          {devices.map((d) => (
+            <option key={d.deviceId} value={d.deviceId}>
+              {d.label || `Microphone (${d.deviceId.slice(0, 6)})`}
+            </option>
+          ))}
+        </select>
+      )}
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
-          <span
-            style={{ fontSize: '12px', color: 'var(--color-ink-muted)', flexShrink: 0 }}
-          >
-            Mic
-          </span>
-          <LevelMeter level={level} />
-        </div>
-
-        {lastUserTranscriptText && (
-          <div
-            style={{
-              marginBottom: '6px',
-              fontSize: '12px',
-              display: 'flex',
-              gap: '4px',
-              overflow: 'hidden',
-            }}
-          >
-            <span style={{ color: 'var(--color-ink-muted)', flexShrink: 0 }}>Last heard:</span>
+      {isConnected && (
+        <div style={{ display: 'flex', gap: '1px', alignItems: 'center', flexShrink: 0 }}>
+          {Array.from({ length: BAR_COUNT }, (_, i) => (
             <span
+              key={i}
               style={{
-                color: 'var(--color-ink)',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
+                display: 'inline-block',
+                width: '2px',
+                height: '10px',
+                backgroundColor: i < filled ? 'var(--color-signal)' : 'var(--color-border)',
               }}
-            >
-              {lastUserTranscriptText}
-            </span>
-          </div>
-        )}
-
-        {showUnheard && (
-          <div
-            style={{
-              marginBottom: '6px',
-              fontSize: '12px',
-              color: 'var(--color-flag)',
-              lineHeight: 1.5,
-            }}
-          >
-            Agent has not received your speech. Check microphone and browser permissions.
-          </div>
-        )}
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <button
-            onClick={runTest}
-            disabled={testing}
-            className="btn-ghost"
-            style={{ fontSize: '11px', padding: '4px 10px', opacity: testing ? 0.6 : 1 }}
-          >
-            {testing ? `Testing… ${Math.ceil(TEST_DURATION_MS / 1000)}s` : 'Test microphone'}
-          </button>
-          {testResult && (
-            <span
-              style={{
-                fontSize: '11px',
-                color: testResult.startsWith('Sound detected')
-                  ? 'var(--color-ok)'
-                  : 'var(--color-flag)',
-              }}
-            >
-              {testResult}
-            </span>
-          )}
+            />
+          ))}
         </div>
-      </div>
+      )}
+
+      {lastTranscriptText && (
+        <span
+          style={{
+            fontSize: '11px',
+            color: 'var(--color-ink-muted)',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            flexShrink: 1,
+            minWidth: 0,
+          }}
+        >
+          heard: {lastTranscriptText}
+        </span>
+      )}
+
+      {showNoTranscript && (
+        <span
+          style={{
+            fontSize: '11px',
+            color: 'var(--color-flag)',
+            flexShrink: 0,
+          }}
+        >
+          The agent has not received your speech yet — check the input device and Turn V3 sensitivity in the ElevenLabs agent settings.
+        </span>
+      )}
     </div>
   )
 }
@@ -301,6 +259,11 @@ function PageContent() {
   const [lastScreenChangeMs, setLastScreenChangeMs] = useState(0)
   const [lastQuestionAskedMs, setLastQuestionAskedMs] = useState(0)
   const [maskRegions, setMaskRegions] = useState<MaskRegion[]>([])
+  const [permission, setPermission] = useState<PermissionState>('prompt')
+  const [devices, setDevices] = useState<MediaDeviceInfo[]>([])
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string>(() =>
+    typeof window !== 'undefined' ? (localStorage.getItem('elevenlabs-input-device-id') ?? '') : '',
+  )
 
   const sessionIdRef = useRef<string>('')
   const startTimeRef = useRef<number>(0)
@@ -310,6 +273,40 @@ function PageContent() {
   const isOffRecordRef = useRef(false)
   const openGapIdRef = useRef<string | null>(null)
   const openGapStartRef = useRef<number>(0)
+
+  const handleDeviceChange = useCallback((id: string) => {
+    setSelectedDeviceId(id)
+    localStorage.setItem('elevenlabs-input-device-id', id)
+  }, [])
+
+  const enumerateAudioInputs = useCallback(async () => {
+    try {
+      const all = await navigator.mediaDevices.enumerateDevices()
+      const inputs = all.filter((d) => d.kind === 'audioinput')
+      setDevices(inputs)
+      if (inputs.length > 0) {
+        setSelectedDeviceId((prev) => {
+          if (prev) return prev
+          const stored = localStorage.getItem('elevenlabs-input-device-id') ?? ''
+          return stored || inputs[0].deviceId
+        })
+      }
+    } catch (_) {}
+  }, [])
+
+  useEffect(() => {
+    navigator.permissions
+      .query({ name: 'microphone' as PermissionName })
+      .then((status) => {
+        setPermission(status.state)
+        if (status.state === 'granted') void enumerateAudioInputs()
+        status.addEventListener('change', () => {
+          setPermission(status.state)
+          if (status.state === 'granted') void enumerateAudioInputs()
+        })
+      })
+      .catch(() => {})
+  }, [enumerateAudioInputs])
 
   const handleVoiceError = useCallback((msg: string) => setApiError(msg), [])
 
@@ -382,7 +379,6 @@ function PageContent() {
     lastUserSpeechMs,
     lastUserTranscriptMs,
     lastUserTranscriptText,
-    checkMic,
     startVoice,
     stopVoice,
     pushScreenEvents,
@@ -392,6 +388,7 @@ function PageContent() {
   } = useVoiceSession({
     sessionIdRef,
     startTimeRef,
+    deviceId: selectedDeviceId || undefined,
     onError: handleVoiceError,
     onAnswered: handleAnswered,
     onOffRecordChange: handleOffRecordChange,
@@ -549,11 +546,34 @@ function PageContent() {
   })
 
   const handleStart = useCallback(async () => {
-    const micErr = await checkMic()
-    if (micErr) {
-      setApiError(micErr)
+    let probeStream: MediaStream | null = null
+    try {
+      probeStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          ...(selectedDeviceId ? { deviceId: { exact: selectedDeviceId } } : {}),
+        },
+      })
+    } catch (err) {
+      const name = err instanceof Error ? err.name : ''
+      if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+        setPermission('denied')
+        setApiError('Microphone access denied. Allow microphone access in your browser and try again.')
+        return
+      }
+      if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+        setApiError('No microphone found. Connect a microphone and try again.')
+        return
+      }
+      setApiError(`Microphone unavailable: ${err instanceof Error ? err.message : String(err)}`)
       return
+    } finally {
+      probeStream?.getTracks().forEach((t) => t.stop())
     }
+    setPermission('granted')
+    await enumerateAudioInputs()
 
     sessionIdRef.current = crypto.randomUUID()
     startTimeRef.current = Date.now()
@@ -570,7 +590,7 @@ function PageContent() {
     openGapIdRef.current = null
     await startSharing()
     await startVoice()
-  }, [checkMic, startSharing, startVoice])
+  }, [selectedDeviceId, enumerateAudioInputs, startSharing, startVoice])
 
   const handleStop = useCallback(() => {
     stopSharing()
@@ -602,6 +622,16 @@ function PageContent() {
         startTimeRef={startTimeRef}
         voiceMode={voiceMode}
         isOffRecord={isOffRecord}
+      />
+      <VoiceStatusBar
+        isConnected={isConnected}
+        voiceMode={voiceMode}
+        permission={permission}
+        devices={devices}
+        selectedDeviceId={selectedDeviceId}
+        onDeviceChange={handleDeviceChange}
+        lastTranscriptMs={lastUserTranscriptMs}
+        lastTranscriptText={lastUserTranscriptText}
       />
 
       <div className="flex flex-col lg:flex-row flex-1 overflow-hidden min-h-0">

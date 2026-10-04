@@ -1,6 +1,7 @@
 export const BAR_COUNT = 20
 export const PENDING_ANSWER_TIMEOUT_MS = 45_000
 export const UNHEARD_WARN_THRESHOLD_MS = 5_000
+export const MIC_LEVEL_THRESHOLD = 0.05
 
 export function calcFilledBars(level: number, count: number): number {
   return Math.round(Math.max(0, Math.min(1, level)) * count)
@@ -26,4 +27,15 @@ export function isUnheardSpeech(
   if (lastUserSpeechMs === 0) return false
   if (nowMs - lastUserSpeechMs > 3_000) return false
   return nowMs - lastUserTranscriptMs > UNHEARD_WARN_THRESHOLD_MS
+}
+
+export function shouldWarnNoTranscript(
+  isConnected: boolean,
+  micActiveMs: number,
+  lastTranscriptMs: number,
+  nowMs: number,
+): boolean {
+  if (!isConnected || micActiveMs === 0) return false
+  if (nowMs - micActiveMs <= UNHEARD_WARN_THRESHOLD_MS) return false
+  return lastTranscriptMs < micActiveMs
 }

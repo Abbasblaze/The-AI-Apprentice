@@ -15,6 +15,7 @@ const ANSWER_SILENCE_MS = 2000
 interface UseVoiceSessionOptions {
   sessionIdRef: React.RefObject<string>
   startTimeRef: React.RefObject<number>
+  deviceId?: string
   onError: (msg: string) => void
   onAnswered: (questionId: string, answerText: string) => void
   onOffRecordChange: (offRecord: boolean, t: number) => void
@@ -42,6 +43,7 @@ interface UseVoiceSessionResult {
 export function useVoiceSession({
   sessionIdRef,
   startTimeRef,
+  deviceId,
   onError,
   onAnswered,
   onOffRecordChange,
@@ -255,11 +257,11 @@ export function useVoiceSession({
   const startVoice = useCallback(async () => {
     try {
       const signedUrl = await fetchSignedUrl()
-      startSession({ signedUrl })
+      startSession(deviceId ? { signedUrl, inputDeviceId: deviceId } : { signedUrl })
     } catch (err) {
       onError(err instanceof Error ? err.message : 'Could not start voice session')
     }
-  }, [startSession, onError])
+  }, [startSession, onError, deviceId])
 
   const stopVoice = useCallback(() => {
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current)
