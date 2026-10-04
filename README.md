@@ -38,6 +38,27 @@ npm run dev
 
 Open http://localhost:3000
 
+## Routes
+
+The app has two modes accessed from the home page:
+
+| Route | Description |
+|---|---|
+| `/` | Home — choose Expert or Learner |
+| `/expert` | Expert capture (screen share + voice) |
+| `/expert/sessions` | Expert session list |
+| `/expert/sessions/[id]` | Session detail, timeline, snapshots |
+| `/expert/sessions/[id]/debrief` | AI-guided debrief |
+| `/expert/sessions/[id]/map` | Work map viewer + export |
+| `/expert/sessions/[id]/privacy` | Privacy / redaction / delete |
+| `/learn` | Learner — choose a confirmed Work Map |
+| `/learn/[mapId]` | Active tutoring session |
+| `/learn/sessions` | Past tutor sessions |
+| `/erp` | ERP simulator (expert: `?set=expert`, learner: `?set=newhire&tutor=<id>`) |
+| `/demo` | Demo checklist |
+
+Old `/sessions` and `/tutor` routes redirect permanently to the new paths.
+
 ## Test
 
 **API tests:**

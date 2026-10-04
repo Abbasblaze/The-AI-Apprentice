@@ -140,3 +140,12 @@ body {
   color: var(--color-ink);
   line-height: 1.1;
 }
+
+.nav-link {
+  color: var(--color-ink-muted);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 500;
+  transition: color 0.15s;
+}
+.nav-link:hover { color: var(--color-ink); }

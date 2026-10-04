@@ -172,38 +172,75 @@ export function ScreenPreview({
         {/* Empty / placeholder state */}
         {!isSharing && (
           <div
-            className="absolute inset-0 flex flex-col items-center justify-center"
+            className="absolute inset-0 flex flex-col items-center justify-center gap-4"
             style={{
-              backgroundColor: '#111214',
-              borderRadius: '8px',
-              border: '1px solid rgba(255, 255, 255, 0.06)',
+              backgroundColor: 'var(--color-panel)',
+              borderRadius: '10px',
+              border: '1px solid var(--color-border)',
             }}
           >
-            <p
-              className="text-sm text-center"
+            <div
               style={{
-                color: 'rgba(255, 255, 255, 0.28)',
-                maxWidth: '24ch',
-                lineHeight: 1.5,
+                width: '56px',
+                height: '56px',
+                borderRadius: '14px',
+                background: 'var(--color-surface)',
+                border: '1px solid var(--color-border)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
               }}
             >
-              Share your screen to begin
-            </p>
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--color-ink-muted)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2" y="3" width="20" height="14" rx="2" />
+                <path d="M8 21h8M12 17v4" />
+              </svg>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <p
+                style={{
+                  fontSize: '14px',
+                  fontWeight: 500,
+                  color: 'var(--color-ink-muted)',
+                  margin: 0,
+                }}
+              >
+                No screen shared
+              </p>
+              <p
+                style={{
+                  fontSize: '12px',
+                  color: '#4a5a78',
+                  margin: '5px 0 0',
+                  lineHeight: 1.6,
+                }}
+              >
+                Start a session to begin AI monitoring
+              </p>
+            </div>
           </div>
         )}
       </div>
 
       {/* Mask-region toolbar — only shown while sharing */}
       {isSharing && (
-        <div className="shrink-0 px-3 py-2 flex items-center gap-2">
+        <div
+          className="shrink-0 flex items-center gap-2"
+          style={{ padding: '6px 8px', borderTop: '1px solid var(--color-border)' }}
+        >
           <button
             onClick={() => setDrawingMode((prev) => !prev)}
-            className="px-3 py-1 text-xs transition-colors"
+            className="btn-ghost"
             style={{
-              border: `1px solid ${drawingMode ? 'rgba(61, 126, 255, 0.5)' : 'rgba(255, 255, 255, 0.1)'}`,
-              borderRadius: '4px',
-              color: drawingMode ? 'rgba(61, 126, 255, 0.9)' : 'rgba(255, 255, 255, 0.45)',
-              backgroundColor: drawingMode ? 'rgba(61, 126, 255, 0.08)' : 'transparent',
+              fontSize: '11px',
+              padding: '4px 10px',
+              ...(drawingMode
+                ? {
+                    borderColor: 'var(--color-signal)',
+                    color: 'var(--color-signal)',
+                    background: 'var(--color-signal-dim)',
+                  }
+                : {}),
             }}
           >
             {drawingMode ? 'Done masking' : 'Mask regions'}
@@ -211,15 +248,10 @@ export function ScreenPreview({
           {maskRegions.length > 0 && (
             <button
               onClick={() => onMaskRegionsChange([])}
-              className="px-3 py-1 text-xs transition-colors"
-              style={{
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                borderRadius: '4px',
-                color: 'rgba(255, 255, 255, 0.35)',
-                backgroundColor: 'transparent',
-              }}
+              className="btn-ghost"
+              style={{ fontSize: '11px', padding: '4px 10px' }}
             >
-              Clear masks
+              Clear ({maskRegions.length})
             </button>
           )}
         </div>

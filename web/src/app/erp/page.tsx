@@ -53,16 +53,21 @@ function ErpApp({ commitGuard = defaultCommitGuard }: ErpAppProps) {
   const seedSet = (searchParams.get('set') ?? 'expert') as SeedSet
   const tutorId = searchParams.get('tutor')
 
-  const [state, setState] = useState<ErpState>(() => {
+  const [state, setState] = useState<ErpState>(() =>
+    JSON.parse(JSON.stringify(SEEDS[seedSet])) as ErpState
+  )
+
+  // Hydrate from localStorage after mount so SSR and client initial render match
+  useEffect(() => {
     try {
       const raw = localStorage.getItem(LS_KEY)
       if (raw) {
         const parsed = JSON.parse(raw) as { seedSet: SeedSet; state: ErpState }
-        if (parsed.seedSet === seedSet) return parsed.state
+        if (parsed.seedSet === seedSet) setState(parsed.state)
       }
     } catch { /* ignore */ }
-    return JSON.parse(JSON.stringify(SEEDS[seedSet])) as ErpState
-  })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const [pendingAction, setPendingAction] = useState<string | null>(null)
   const stateRef = useRef<ErpState>(state)
 

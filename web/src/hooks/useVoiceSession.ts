@@ -19,6 +19,7 @@ interface UseVoiceSessionOptions {
   onAnswered: (questionId: string, answerText: string) => void
   onOffRecordChange: (offRecord: boolean, t: number) => void
   onForgetThat: () => void
+  onAnswerTimeout?: () => void
 }
 
 interface UseVoiceSessionResult {
@@ -45,6 +46,7 @@ export function useVoiceSession({
   onAnswered,
   onOffRecordChange,
   onForgetThat,
+  onAnswerTimeout,
 }: UseVoiceSessionOptions): UseVoiceSessionResult {
   const [isConnected, setIsConnected] = useState(false)
   const [voiceMode, setVoiceMode] = useState<VoiceMode>('idle')
@@ -65,10 +67,12 @@ export function useVoiceSession({
   const onAnsweredRef = useRef(onAnswered)
   const onOffRecordChangeRef = useRef(onOffRecordChange)
   const onForgetThatRef = useRef(onForgetThat)
+  const onAnswerTimeoutRef = useRef(onAnswerTimeout)
 
   useEffect(() => { onAnsweredRef.current = onAnswered }, [onAnswered])
   useEffect(() => { onOffRecordChangeRef.current = onOffRecordChange }, [onOffRecordChange])
   useEffect(() => { onForgetThatRef.current = onForgetThat }, [onForgetThat])
+  useEffect(() => { onAnswerTimeoutRef.current = onAnswerTimeout }, [onAnswerTimeout])
 
   const elapsed = useCallback(
     () => (Date.now() - startTimeRef.current) / 1000,
@@ -112,6 +116,7 @@ export function useVoiceSession({
         pendingAnswerSinceRef.current = 0
         setIsPendingAnswer(false)
         if (isConnectedRef.current) setVoiceMode('listening')
+        onAnswerTimeoutRef.current?.()
       }
     }, PENDING_ANSWER_TIMEOUT_MS)
     return () => clearTimeout(id)
@@ -216,7 +221,7 @@ export function useVoiceSession({
     }, []),
 
     onVadScore: useCallback((props: { vadScore: number }) => {
-      if (props.vadScore > 0.5) {
+      if (props.vadScore > 0.2) {
         setLastUserSpeechMs(Date.now())
       }
     }, []),

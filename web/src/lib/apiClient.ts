@@ -247,3 +247,21 @@ export async function listMapsForTutor(): Promise<WorkMap[]> {
     (m): m is WorkMap => m !== null && (m.expert_confirmed || m.demo_ready),
   )
 }
+
+export interface LearnMapSummary {
+  session_id: string
+  process_name: string
+  step_count: number
+  guardrail_count: number
+  confirmed_at: number | null
+  expert_confirmed: boolean
+  demo_ready: boolean
+}
+
+export async function fetchLearnMaps(): Promise<LearnMapSummary[]> {
+  return apiFetch<LearnMapSummary[]>('/api/learn/maps')
+}
+
+export async function fetchLearnMap(sessionId: string): Promise<WorkMap> {
+  return apiFetch<WorkMap>(`/api/learn/maps/${sessionId}`)
+}

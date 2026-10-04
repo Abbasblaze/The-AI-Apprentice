@@ -31,7 +31,7 @@ function Divider() {
         width: '1px',
         height: '10px',
         background: 'var(--color-border)',
-        margin: '0 10px',
+        margin: '0 8px',
         verticalAlign: 'middle',
         flexShrink: 0,
       }}
@@ -48,9 +48,9 @@ interface StatProps {
 function Stat({ label, value, valueStyle }: StatProps) {
   return (
     <span style={{ whiteSpace: 'nowrap' }}>
-      <span style={{ color: 'var(--color-graphite)', opacity: 0.7 }}>{label}:</span>
-      {' '}
-      <span style={{ color: 'var(--color-graphite)', ...valueStyle }}>{value}</span>
+      <span style={{ color: '#4a5a78' }}>{label}</span>
+      <span style={{ color: 'var(--color-border)', margin: '0 3px' }}>·</span>
+      <span style={{ color: 'var(--color-ink-muted)', ...valueStyle }}>{value}</span>
     </span>
   )
 }
@@ -70,11 +70,11 @@ export function StatsStrip({
     <div
       style={{
         borderTop: '1px solid var(--color-border)',
-        background: 'var(--color-panel)',
+        background: 'var(--color-paper)',
         fontFamily: 'var(--font-mono, ui-monospace, monospace)',
         fontSize: '11px',
         lineHeight: '1',
-        padding: '0 12px',
+        padding: '0 16px',
         height: '28px',
         display: 'flex',
         alignItems: 'center',

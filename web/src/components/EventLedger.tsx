@@ -423,40 +423,14 @@ export function EventLedger({ entries }: Props) {
           display: 'flex',
           alignItems: 'center',
           gap: '8px',
-          padding: '10px 16px',
+          padding: '12px 16px',
           borderBottom: '1px solid var(--color-border)',
           flexShrink: 0,
         }}
       >
-        <span
-          style={{
-            fontSize: '10px',
-            fontWeight: 700,
-            letterSpacing: '0.1em',
-            textTransform: 'uppercase',
-            color: '#4a5a78',
-          }}
-        >
-          Events
-        </span>
+        <span className="label-upper">Events</span>
         {entries.length > 0 && (
-          <span
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              minWidth: '18px',
-              height: '16px',
-              padding: '0 5px',
-              borderRadius: '8px',
-              fontSize: '10px',
-              fontWeight: 600,
-              color: '#4a5a78',
-              background: 'color-mix(in srgb, #4a5a78 14%, transparent)',
-            }}
-          >
-            {entries.length}
-          </span>
+          <span className="chip chip-neutral">{entries.length}</span>
         )}
       </div>
 
@@ -479,14 +453,30 @@ export function EventLedger({ entries }: Props) {
           <div
             style={{
               display: 'flex',
-              alignItems: 'flex-start',
-              paddingTop: '24px',
-              paddingLeft: '68px',
-              paddingRight: '16px',
-              color: '#4a5a78',
+              flexDirection: 'column',
+              alignItems: 'center',
+              paddingTop: '52px',
+              paddingLeft: '24px',
+              paddingRight: '24px',
+              textAlign: 'center',
             }}
           >
-            <p style={{ fontSize: '13px', margin: 0 }}>No events yet.</p>
+            <div
+              style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '8px',
+                background: 'var(--color-surface)',
+                border: '1px solid var(--color-border)',
+                marginBottom: '12px',
+              }}
+            />
+            <p style={{ fontSize: '13px', color: 'var(--color-ink-muted)', margin: 0, fontWeight: 500 }}>
+              No events yet
+            </p>
+            <p style={{ fontSize: '12px', color: '#4a5a78', margin: '4px 0 0', lineHeight: 1.6 }}>
+              Activity appears here during your session
+            </p>
           </div>
         ) : (
           <div style={{ paddingBottom: '16px' }}>

@@ -64,68 +64,88 @@ export function Header({ isSharing, startTimeRef, voiceMode, isOffRecord }: Prop
 
   return (
     <header
-      className="flex items-center justify-between px-5 shrink-0"
+      className="flex items-center justify-between shrink-0"
       style={{
         height: '52px',
-        background: 'rgba(10,13,20,0.95)',
-        borderBottom: '1px solid #1e2533',
+        padding: '0 20px',
+        background: 'rgba(10,13,20,0.96)',
+        borderBottom: '1px solid var(--color-border)',
         backdropFilter: 'blur(12px)',
         WebkitBackdropFilter: 'blur(12px)',
       }}
     >
       {/* Logo */}
-      <Link
-        href="/"
-        style={{ textDecoration: 'none' }}
-      >
+      <Link href="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '10px' }}>
         <span
-          className="text-base font-semibold tracking-tight"
           style={{
-            background: 'linear-gradient(90deg, #3d7eff 0%, #7c3aed 100%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            backgroundClip: 'text',
+            width: '26px',
+            height: '26px',
+            borderRadius: '7px',
+            background: 'linear-gradient(135deg, #3d7eff 0%, #7c3aed 100%)',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+          }}
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <circle cx="7" cy="7" r="2.5" fill="white" />
+            <circle cx="7" cy="7" r="5.5" stroke="white" strokeWidth="1.2" strokeOpacity="0.5" fill="none" />
+          </svg>
+        </span>
+        <span
+          style={{
+            fontSize: '14px',
+            fontWeight: 600,
+            letterSpacing: '-0.01em',
+            color: 'var(--color-ink)',
             fontFamily: 'var(--font-heading)',
           }}
         >
-          The AI Apprentice
+          AI Apprentice
         </span>
       </Link>
 
       {/* Right side */}
-      <div className="flex items-center gap-4">
-        <Link
-          href="/sessions"
-          className="text-sm transition-colors"
-          style={{ color: '#8a94a8', textDecoration: 'none' }}
-          onMouseEnter={e => ((e.target as HTMLElement).style.color = '#c9d1e0')}
-          onMouseLeave={e => ((e.target as HTMLElement).style.color = '#8a94a8')}
-        >
-          Sessions
-        </Link>
+      <div className="flex items-center gap-5">
+        <nav className="flex items-center gap-4">
+          <Link href="/expert/sessions" className="nav-link">Sessions</Link>
+          <Link href="/demo" className="nav-link">Demo</Link>
+          <div style={{ width: '1px', height: '16px', background: 'var(--color-border)' }} />
+          <Link
+            href="/learn"
+            style={{
+              fontSize: '12px',
+              color: 'var(--color-ink-muted)',
+              textDecoration: 'none',
+              border: '1px solid var(--color-border)',
+              borderRadius: '5px',
+              padding: '3px 10px',
+              transition: 'color 0.15s, border-color 0.15s',
+            }}
+          >
+            Learner mode
+          </Link>
+        </nav>
 
-        <Link
-          href="/demo"
-          className="text-sm transition-colors"
-          style={{ color: '#8a94a8', textDecoration: 'none' }}
-          onMouseEnter={e => ((e.target as HTMLElement).style.color = '#c9d1e0')}
-          onMouseLeave={e => ((e.target as HTMLElement).style.color = '#8a94a8')}
-        >
-          Demo
-        </Link>
+        {/* Separator */}
+        {(chip || isOffRecordActive || isSharing) && (
+          <div style={{ width: '1px', height: '16px', background: 'var(--color-border)' }} />
+        )}
 
         {/* Voice mode chip */}
         {chip && (
           <span
-            className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full"
+            className="chip"
             style={{
               background: chip.bg,
               color: chip.text,
               border: `1px solid ${chip.dot}33`,
+              borderRadius: '20px',
             }}
           >
             <span
-              className="inline-block w-1.5 h-1.5 rounded-full"
+              className="live-dot inline-block w-1.5 h-1.5 rounded-full mr-1"
               style={{ backgroundColor: chip.dot }}
             />
             {chip.label}
@@ -134,28 +154,33 @@ export function Header({ isSharing, startTimeRef, voiceMode, isOffRecord }: Prop
 
         {/* Off-record badge */}
         {isOffRecordActive && (
-          <span
-            className="text-xs font-medium px-2.5 py-1 rounded-full"
-            style={{
-              color: '#f87171',
-              background: 'rgba(239,68,68,0.10)',
-              border: '1px solid rgba(239,68,68,0.25)',
-            }}
-          >
+          <span className="chip chip-flag">
             off the record
           </span>
         )}
 
         {/* Elapsed timer */}
         {isSharing && (
-          <div className="flex items-center gap-2">
+          <div
+            className="flex items-center gap-2"
+            style={{
+              padding: '4px 10px',
+              borderRadius: '6px',
+              background: 'var(--color-surface)',
+              border: '1px solid var(--color-border)',
+            }}
+          >
             <span
-              className="live-dot inline-block w-2 h-2 rounded-full"
+              className="live-dot inline-block w-1.5 h-1.5 rounded-full"
               style={{ backgroundColor: '#ef4444' }}
             />
             <span
-              className="text-sm tabular-nums"
-              style={{ color: '#8a94a8', fontVariantNumeric: 'tabular-nums' }}
+              style={{
+                fontSize: '12px',
+                fontFamily: 'var(--font-mono)',
+                color: 'var(--color-ink-muted)',
+                fontVariantNumeric: 'tabular-nums',
+              }}
             >
               {formatElapsed(elapsed)}
             </span>

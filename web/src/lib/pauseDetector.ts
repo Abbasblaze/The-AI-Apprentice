@@ -7,7 +7,7 @@ export interface PauseConfig {
 export const DEFAULT_PAUSE_CONFIG: PauseConfig = {
   screenQuietMs: 2500,
   speechQuietMs: 2500,
-  minQuestionIntervalMs: 90_000,
+  minQuestionIntervalMs: 180_000,
 }
 
 export interface PauseState {
@@ -37,6 +37,8 @@ export function shouldAsk(
   if (isOffRecord) return false
   if (isSpeaking) return false
   if (isPendingAnswer) return false
+  // Don't ask anything until at least one screen event has been seen
+  if (lastScreenChangeMs === 0) return false
   if (nowMs - lastScreenChangeMs < config.screenQuietMs) return false
   if (nowMs - lastUserSpeechMs < config.speechQuietMs) return false
   if (lastQuestionAskedMs > 0 && nowMs - lastQuestionAskedMs < config.minQuestionIntervalMs)

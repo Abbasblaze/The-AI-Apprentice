@@ -16,6 +16,7 @@ from app.routers import (
     erp_events,
     export,
     frames,
+    learn,
     privacy,
     sessions,
     status,
@@ -81,6 +82,7 @@ app.include_router(transcript.router, prefix="/api")
 app.include_router(director.router, prefix="/api")
 app.include_router(debrief.router, prefix="/api")
 app.include_router(tutor.router, prefix="/api")
+app.include_router(learn.router, prefix="/api")
 app.include_router(privacy.router, prefix="/api")
 app.include_router(export.router, prefix="/api")
 app.include_router(status.router, prefix="/api")
