@@ -23,10 +23,18 @@ export function meanDiff(a: Uint8ClampedArray, b: Uint8ClampedArray): number {
   return sum / a.length
 }
 
+export interface MaskRect {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
 export function encodeJpeg(
   video: HTMLVideoElement,
   canvas: HTMLCanvasElement,
   quality = 0.7,
+  maskRegions: MaskRect[] = [],
 ): string {
   const scale = Math.min(1, 1024 / video.videoWidth)
   canvas.width = Math.round(video.videoWidth * scale)
@@ -34,6 +42,17 @@ export function encodeJpeg(
   const ctx = canvas.getContext('2d')
   if (!ctx) throw new Error('Canvas 2D not supported')
   ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+  if (maskRegions.length > 0) {
+    ctx.fillStyle = '#000000'
+    for (const region of maskRegions) {
+      ctx.fillRect(
+        region.x * canvas.width,
+        region.y * canvas.height,
+        region.width * canvas.width,
+        region.height * canvas.height,
+      )
+    }
+  }
   const dataUrl = canvas.toDataURL('image/jpeg', quality)
   return dataUrl.split(',')[1]
 }

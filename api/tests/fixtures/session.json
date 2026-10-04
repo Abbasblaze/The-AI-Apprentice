@@ -1,0 +1,223 @@
+{
+  "session_id": "fixture-session-001",
+  "start_time": 1700000000.0,
+  "end_time": 1700000480.0,
+  "events": [
+    {
+      "id": "evt-001",
+      "t": 10.0,
+      "kind": "navigated",
+      "subject": "Invoice Inbox",
+      "field": null,
+      "from_value": null,
+      "to_value": null,
+      "summary": "Navigated to Invoice Inbox",
+      "source": "vision"
+    },
+    {
+      "id": "evt-002",
+      "t": 18.0,
+      "kind": "selected",
+      "subject": "INV-4471",
+      "field": null,
+      "from_value": null,
+      "to_value": null,
+      "summary": "Selected invoice INV-4471 for review",
+      "source": "vision"
+    },
+    {
+      "id": "evt-003",
+      "t": 90.0,
+      "kind": "navigated",
+      "subject": "INV-4472",
+      "field": null,
+      "from_value": null,
+      "to_value": null,
+      "summary": "Navigated to invoice INV-4472",
+      "source": "vision"
+    },
+    {
+      "id": "evt-004",
+      "t": 115.0,
+      "kind": "selected",
+      "subject": "Hold status",
+      "field": null,
+      "from_value": null,
+      "to_value": null,
+      "summary": "Selected Hold on INV-4472",
+      "source": "vision"
+    },
+    {
+      "id": "evt-005",
+      "t": 120.0,
+      "kind": "typed",
+      "subject": "Hold note",
+      "field": "Note",
+      "from_value": null,
+      "to_value": "Amount doesn't match PO, sending back",
+      "summary": "Typed hold note: Amount doesn't match PO, sending back",
+      "source": "vision"
+    },
+    {
+      "id": "evt-006",
+      "t": 170.0,
+      "kind": "navigated",
+      "subject": "INV-4473",
+      "field": null,
+      "from_value": null,
+      "to_value": null,
+      "summary": "Navigated to invoice INV-4473",
+      "source": "vision"
+    },
+    {
+      "id": "evt-007",
+      "t": 195.0,
+      "kind": "typed",
+      "subject": "Justification",
+      "field": "Justification",
+      "from_value": null,
+      "to_value": "Over threshold, needs manager sign-off",
+      "summary": "Typed justification: Over threshold, needs manager sign-off",
+      "source": "vision"
+    }
+  ],
+  "erp_events": [
+    {
+      "id": "erp-001",
+      "t": 45.0,
+      "kind": "changed",
+      "subject": "INV-4471",
+      "field": "Cost Center",
+      "from_value": "CC-100",
+      "to_value": "CC-200",
+      "summary": "Changed cost center from CC-100 to CC-200",
+      "source": "erp"
+    },
+    {
+      "id": "erp-002",
+      "t": 52.0,
+      "kind": "changed",
+      "subject": "INV-4471",
+      "field": "Approval Status",
+      "from_value": "Pending",
+      "to_value": "Approved",
+      "summary": "Changed approval status from Pending to Approved",
+      "source": "erp"
+    },
+    {
+      "id": "erp-003",
+      "t": 110.0,
+      "kind": "changed",
+      "subject": "INV-4472",
+      "field": "Amount",
+      "from_value": "12500",
+      "to_value": "11200",
+      "summary": "Changed amount from 12500 to 11200",
+      "source": "erp"
+    },
+    {
+      "id": "erp-004",
+      "t": 185.0,
+      "kind": "changed",
+      "subject": "INV-4473",
+      "field": "Approval Level",
+      "from_value": "Standard",
+      "to_value": "Tier-2",
+      "summary": "Changed approval level from Standard to Tier-2",
+      "source": "erp"
+    },
+    {
+      "id": "erp-005",
+      "t": 190.0,
+      "kind": "changed",
+      "subject": "INV-4473",
+      "field": "Approver",
+      "from_value": "",
+      "to_value": "J.Martinez",
+      "summary": "Assigned approver J.Martinez to INV-4473",
+      "source": "erp"
+    }
+  ],
+  "transcript": [
+    {
+      "role": "agent",
+      "message": "You moved invoice 4471 to cost center CC-200. What made you choose CC-200 instead of CC-100?",
+      "t": 60.0,
+      "phase": "interview"
+    },
+    {
+      "role": "user",
+      "message": "The vendor is in the marketing division so it belongs to CC-200 not CC-100. You always match the vendor department to the correct cost center.",
+      "t": 68.0,
+      "phase": "interview"
+    },
+    {
+      "role": "agent",
+      "message": "You put invoice 4472 on hold. What triggered that decision?",
+      "t": 130.0,
+      "phase": "interview"
+    },
+    {
+      "role": "user",
+      "message": "The invoice amount was 12500 but the purchase order only authorized 11200. Any discrepancy over 5% goes on hold and gets sent back to the vendor for correction. You never approve an invoice that exceeds the PO amount by more than 5 percent without explicit manager approval.",
+      "t": 142.0,
+      "phase": "interview"
+    },
+    {
+      "role": "agent",
+      "message": "You escalated invoice 4473 to tier-2 approval and assigned J.Martinez. Why does this one need tier-2?",
+      "t": 200.0,
+      "phase": "interview"
+    },
+    {
+      "role": "user",
+      "message": "Anything over 10000 dollars requires tier-2 sign-off. J.Martinez is the designated approver for the operations department. I always check the approver list before assigning to make sure the person is still active.",
+      "t": 215.0,
+      "phase": "interview"
+    }
+  ],
+  "decisions": [
+    {
+      "id": "dec-001",
+      "t": 60.0,
+      "should_ask": true,
+      "kind": "reason",
+      "anchor_event_id": "erp-001",
+      "question": "You moved invoice 4471 to cost center CC-200. What made you choose CC-200 instead of CC-100?",
+      "why": "Cost center change without visible reason",
+      "rejected_reason": null,
+      "answered": true,
+      "answer_text": "The vendor is in the marketing division so it belongs to CC-200 not CC-100. You always match the vendor department to the correct cost center."
+    },
+    {
+      "id": "dec-002",
+      "t": 130.0,
+      "should_ask": true,
+      "kind": "guardrail",
+      "anchor_event_id": "evt-004",
+      "question": "You put invoice 4472 on hold. What triggered that decision?",
+      "why": "Hold action may indicate a guardrail",
+      "rejected_reason": null,
+      "answered": true,
+      "answer_text": "The invoice amount was 12500 but the purchase order only authorized 11200. Any discrepancy over 5% goes on hold and gets sent back to the vendor for correction. You never approve an invoice that exceeds the PO amount by more than 5 percent without explicit manager approval."
+    },
+    {
+      "id": "dec-003",
+      "t": 200.0,
+      "should_ask": true,
+      "kind": "escalation",
+      "anchor_event_id": "erp-004",
+      "question": "You escalated invoice 4473 to tier-2 approval and assigned J.Martinez. Why does this one need tier-2?",
+      "why": "Escalation to higher approval tier",
+      "rejected_reason": null,
+      "answered": true,
+      "answer_text": "Anything over 10000 dollars requires tier-2 sign-off. J.Martinez is the designated approver for the operations department. I always check the approver list before assigning to make sure the person is still active."
+    }
+  ],
+  "snapshots": [
+    {"t": 20.0, "filename": "20.000.jpg"},
+    {"t": 95.0, "filename": "95.000.jpg"},
+    {"t": 175.0, "filename": "175.000.jpg"}
+  ],
+  "debrief_state": null
+}

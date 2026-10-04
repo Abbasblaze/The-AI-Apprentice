@@ -7,6 +7,7 @@ import type { ErpAction, Invoice, InvoiceStatus } from '@/lib/erp/types'
 interface Props {
   invoice: Invoice
   dispatch: (action: ErpAction) => void
+  pendingAction?: string | null
 }
 
 const STATUS_LABEL: Record<InvoiceStatus, string> = {
@@ -16,17 +17,15 @@ const STATUS_LABEL: Record<InvoiceStatus, string> = {
   posted: 'Posted',
 }
 
-const STATUS_COLOR: Record<InvoiceStatus, string> = {
-  open: '#1A1A1A',
-  held: '#B45309',
-  'awaiting-approval': '#1D4ED8',
-  posted: '#15803D',
+const STATUS_STYLE: Record<InvoiceStatus, { color: string; bg: string; border: string }> = {
+  open: { color: '#c9d1d9', bg: 'rgba(201,209,217,0.08)', border: 'rgba(201,209,217,0.2)' },
+  held: { color: '#e3b341', bg: 'rgba(227,179,65,0.1)', border: 'rgba(227,179,65,0.3)' },
+  'awaiting-approval': { color: '#388bfd', bg: 'rgba(56,139,253,0.1)', border: 'rgba(56,139,253,0.3)' },
+  posted: { color: '#3fb950', bg: 'rgba(63,185,80,0.1)', border: 'rgba(63,185,80,0.3)' },
 }
 
 function fmtAmount(amount: number): string {
-  return new Intl.NumberFormat('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(
-    amount,
-  )
+  return new Intl.NumberFormat('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount)
 }
 
 function fmtDate(iso: string): string {
@@ -34,23 +33,37 @@ function fmtDate(iso: string): string {
   return `${d}.${m}.${y}`
 }
 
-export function InvoiceDetail({ invoice, dispatch }: Props) {
+export function InvoiceDetail({ invoice, dispatch, pendingAction }: Props) {
   const [assetDraft, setAssetDraft] = useState(invoice.asset_number)
   const [noteDraft, setNoteDraft] = useState(invoice.internal_note)
   const { status } = invoice
+  const ss = STATUS_STYLE[status]
 
   return (
     <div style={{ padding: '20px 24px', maxWidth: '640px' }}>
       <button
         onClick={() => dispatch({ type: 'BACK_TO_INBOX' })}
-        style={{ ...linkBtn, marginBottom: '16px' }}
+        style={linkBtn}
       >
         ← Invoice inbox
       </button>
 
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px', marginBottom: '20px' }}>
-        <h2 style={{ fontSize: '16px', fontWeight: 600, margin: 0 }}>{invoice.number}</h2>
-        <span style={{ fontSize: '13px', color: STATUS_COLOR[status], fontWeight: 500 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: '16px 0 20px' }}>
+        <h2 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: '#e6edf3', letterSpacing: '-0.01em' }}>
+          {invoice.number}
+        </h2>
+        <span style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          padding: '2px 9px',
+          borderRadius: '20px',
+          fontSize: '11px',
+          fontWeight: 600,
+          letterSpacing: '0.02em',
+          color: ss.color,
+          background: ss.bg,
+          border: `1px solid ${ss.border}`,
+        }}>
           {STATUS_LABEL[status]}
         </span>
       </div>
@@ -63,9 +76,13 @@ export function InvoiceDetail({ invoice, dispatch }: Props) {
         <div style={{ gridColumn: '1 / -1' }}>
           <Field label="Description" value={invoice.description} />
         </div>
+        <Field label="Contact Name" value={invoice.contact_name || '—'} />
+        <Field label="Contact Email" value={invoice.contact_email || '—'} />
+        <Field label="Contact Phone" value={invoice.contact_phone || '—'} />
+        <Field label="Bank IBAN" value={invoice.bank_iban || '—'} mono />
       </div>
 
-      <div style={{ borderTop: '1px solid #D0D0CE', paddingTop: '16px', marginBottom: '20px' }}>
+      <div style={{ borderTop: '1px solid #21262d', paddingTop: '16px', marginBottom: '20px' }}>
         <div style={{ marginBottom: '12px' }}>
           <label style={labelStyle}>Cost Center</label>
           <select
@@ -77,6 +94,7 @@ export function InvoiceDetail({ invoice, dispatch }: Props) {
                 value: e.target.value as 'opex 4711' | 'capex 0400',
               })
             }
+            disabled={pendingAction === 'CHANGE_COST_CENTER'}
             style={inputStyle}
           >
             <option value="opex 4711">opex 4711</option>
@@ -121,16 +139,19 @@ export function InvoiceDetail({ invoice, dispatch }: Props) {
         {status === 'open' && (
           <>
             <ActionBtn
-              label="Place on Hold"
+              label={pendingAction === 'HOLD' ? 'Checking…' : 'Place on Hold'}
+              disabled={pendingAction !== null}
               onClick={() => dispatch({ type: 'HOLD', invoice_id: invoice.id })}
             />
             <ActionBtn
-              label="Send for Approval"
+              label={pendingAction === 'SEND_FOR_APPROVAL' ? 'Checking…' : 'Send for Approval'}
+              disabled={pendingAction !== null}
               onClick={() => dispatch({ type: 'SEND_FOR_APPROVAL', invoice_id: invoice.id })}
             />
             <ActionBtn
-              label="Post"
+              label={pendingAction === 'POST' ? 'Checking…' : 'Post'}
               primary
+              disabled={pendingAction !== null}
               onClick={() => dispatch({ type: 'POST', invoice_id: invoice.id })}
             />
           </>
@@ -138,20 +159,23 @@ export function InvoiceDetail({ invoice, dispatch }: Props) {
         {status === 'held' && (
           <>
             <ActionBtn
-              label="Release Hold"
+              label={pendingAction === 'RELEASE_HOLD' ? 'Checking…' : 'Release Hold'}
+              disabled={pendingAction !== null}
               onClick={() => dispatch({ type: 'RELEASE_HOLD', invoice_id: invoice.id })}
             />
             <ActionBtn
-              label="Post"
+              label={pendingAction === 'POST' ? 'Checking…' : 'Post'}
               primary
+              disabled={pendingAction !== null}
               onClick={() => dispatch({ type: 'POST', invoice_id: invoice.id })}
             />
           </>
         )}
         {status === 'awaiting-approval' && (
           <ActionBtn
-            label="Post"
+            label={pendingAction === 'POST' ? 'Checking…' : 'Post'}
             primary
+            disabled={pendingAction !== null}
             onClick={() => dispatch({ type: 'POST', invoice_id: invoice.id })}
           />
         )}
@@ -163,10 +187,15 @@ export function InvoiceDetail({ invoice, dispatch }: Props) {
 function Field({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
     <div>
-      <div style={{ fontSize: '11px', color: '#6B7280', marginBottom: '2px', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+      <div style={{ fontSize: '10px', color: '#6e7681', marginBottom: '3px', letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 600 }}>
         {label}
       </div>
-      <div style={{ fontSize: '13px', color: '#1A1A1A', fontVariantNumeric: mono ? 'tabular-nums' : undefined }}>
+      <div style={{
+        fontSize: '13px',
+        color: '#c9d1d9',
+        fontVariantNumeric: mono ? 'tabular-nums' : undefined,
+        fontFamily: mono ? 'ui-monospace, monospace' : undefined,
+      }}>
         {value}
       </div>
     </div>
@@ -177,23 +206,28 @@ function ActionBtn({
   label,
   onClick,
   primary,
+  disabled,
 }: {
   label: string
   onClick: () => void
   primary?: boolean
+  disabled?: boolean
 }) {
   return (
     <button
       onClick={onClick}
+      disabled={disabled}
       style={{
         padding: '6px 14px',
         fontSize: '13px',
         fontWeight: 500,
-        borderRadius: '2px',
-        border: primary ? 'none' : '1px solid #C0C0BE',
-        background: primary ? '#2563EB' : '#FFFFFF',
-        color: primary ? '#FFFFFF' : '#1A1A1A',
-        cursor: 'pointer',
+        borderRadius: '6px',
+        border: primary ? 'none' : '1px solid #30363d',
+        background: primary ? '#1f6feb' : 'transparent',
+        color: primary ? '#ffffff' : '#c9d1d9',
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        opacity: disabled ? 0.5 : 1,
+        transition: 'opacity 0.15s, background 0.15s',
       }}
     >
       {label}
@@ -203,31 +237,34 @@ function ActionBtn({
 
 const labelStyle: React.CSSProperties = {
   display: 'block',
-  fontSize: '11px',
-  color: '#6B7280',
-  marginBottom: '4px',
-  letterSpacing: '0.04em',
+  fontSize: '10px',
+  color: '#6e7681',
+  marginBottom: '5px',
+  letterSpacing: '0.06em',
   textTransform: 'uppercase',
+  fontWeight: 600,
 }
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
-  padding: '6px 8px',
+  padding: '7px 10px',
   fontSize: '13px',
-  border: '1px solid #C8C8C6',
-  borderRadius: '2px',
-  background: '#FFFFFF',
-  color: '#1A1A1A',
+  border: '1px solid #30363d',
+  borderRadius: '6px',
+  background: '#0d1117',
+  color: '#c9d1d9',
   outline: 'none',
   boxSizing: 'border-box',
 }
 
 const linkBtn: React.CSSProperties = {
-  display: 'inline-block',
+  display: 'inline-flex',
+  alignItems: 'center',
   fontSize: '13px',
-  color: '#2563EB',
+  color: '#388bfd',
   background: 'none',
   border: 'none',
   padding: 0,
   cursor: 'pointer',
+  marginBottom: '4px',
 }

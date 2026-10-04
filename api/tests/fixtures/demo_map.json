@@ -1,0 +1,89 @@
+{
+  "session_id": "fixture-session-001",
+  "process_name": "Equipment invoice coding",
+  "summary": "New hire processes an equipment invoice by selecting it, assigning the correct cost center, and sending for approval.",
+  "steps": [
+    {
+      "id": "demo-step-001",
+      "order": 1,
+      "title": "Select invoice",
+      "screen_moment": {
+        "t": 10.0,
+        "snapshot_t": 20.0,
+        "subject": "Invoice Inbox"
+      },
+      "decision": "Navigate to the equipment invoice",
+      "reason": {
+        "text": "Start by opening the invoice that needs to be processed",
+        "quote": null,
+        "quote_t": null,
+        "unconfirmed": false
+      },
+      "is_judgment_call": false,
+      "guardrails": [],
+      "confidence": 0.9,
+      "open_gaps": []
+    },
+    {
+      "id": "demo-step-002",
+      "order": 2,
+      "title": "Code cost center",
+      "screen_moment": {
+        "t": 45.0,
+        "snapshot_t": 20.0,
+        "subject": "invoice INV-4480"
+      },
+      "decision": "Assign capex 0400 for equipment over EUR 5,000",
+      "reason": {
+        "text": "Physical equipment over EUR 5,000 must be capitalised using capex cost center 0400",
+        "quote": "Anything above five thousand euros that is physical equipment goes to capex, never opex",
+        "quote_t": 68.0,
+        "unconfirmed": false
+      },
+      "is_judgment_call": false,
+      "guardrails": [
+        {
+          "id": "demo-grail-001",
+          "kind": "limit",
+          "rule": "Equipment invoices over EUR 5,000 must be coded to capex 0400, not opex 4711",
+          "quote": "Anything above five thousand euros that is physical equipment goes to capex, never opex",
+          "quote_t": 68.0,
+          "who_to_ask": "Finance controller",
+          "applies_to": "Physical equipment invoices",
+          "threshold": 5000.0,
+          "comparator": "gt",
+          "threshold_field": "amount",
+          "blocked_value": "opex 4711"
+        }
+      ],
+      "confidence": 0.95,
+      "open_gaps": []
+    },
+    {
+      "id": "demo-step-003",
+      "order": 3,
+      "title": "Send for approval",
+      "screen_moment": {
+        "t": 90.0,
+        "snapshot_t": 95.0,
+        "subject": "invoice INV-4480"
+      },
+      "decision": "Send to approval queue once cost center is correct",
+      "reason": {
+        "text": "Once the cost center is correctly assigned, the invoice must be routed for approval",
+        "quote": null,
+        "quote_t": null,
+        "unconfirmed": false
+      },
+      "is_judgment_call": false,
+      "guardrails": [],
+      "confidence": 0.9,
+      "open_gaps": []
+    }
+  ],
+  "expert_confirmed": false,
+  "confirmed_at": null,
+  "teachback_rounds": [],
+  "version": 1,
+  "demo_ready": true
+}

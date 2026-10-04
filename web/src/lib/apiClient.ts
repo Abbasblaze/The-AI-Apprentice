@@ -1,13 +1,25 @@
 import type {
+  ApiStatus,
   AppEvent,
+  StorageInfo,
+  CheckVerdict,
+  DebriefAnswerResponse,
+  DebriefReplyResponse,
+  DebriefStartResponse,
   DirectorDecideRequest,
   DirectorDecideResponse,
+  ForgetThatRecord,
   FrameRequest,
   FrameResponse,
+  MaskRegion,
+  MasterySummary,
+  PrivacySummary,
   SessionRecord,
   SessionSummary,
   TranscriptEntry,
   TranscriptResponse,
+  TutorSession,
+  WorkMap,
 } from './types'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
@@ -29,8 +41,8 @@ export async function postFrame(req: FrameRequest): Promise<FrameResponse> {
   })
 }
 
-export async function fetchSignedUrl(): Promise<string> {
-  const data = await apiFetch<{ signed_url: string }>('/api/voice/signed-url')
+export async function fetchSignedUrl(role: 'interviewer' | 'debrief' | 'tutor' = 'interviewer'): Promise<string> {
+  const data = await apiFetch<{ signed_url: string }>(`/api/voice/signed-url?role=${role}`)
   return data.signed_url
 }
 
@@ -80,4 +92,176 @@ export async function fetchSession(sessionId: string): Promise<SessionRecord> {
 
 export function snapshotUrl(sessionId: string, t: number): string {
   return `${API_BASE}/api/sessions/${sessionId}/snapshots/${t.toFixed(3)}`
+}
+
+export async function startDebrief(sessionId: string): Promise<DebriefStartResponse> {
+  return apiFetch<DebriefStartResponse>(`/api/sessions/${sessionId}/debrief/start`, {
+    method: 'POST',
+  })
+}
+
+export async function answerDebrief(sessionId: string, answer: string): Promise<DebriefAnswerResponse> {
+  return apiFetch<DebriefAnswerResponse>(`/api/sessions/${sessionId}/debrief/answer`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ answer }),
+  })
+}
+
+export async function replyDebrief(sessionId: string, reply: string): Promise<DebriefReplyResponse> {
+  return apiFetch<DebriefReplyResponse>(`/api/sessions/${sessionId}/debrief/reply`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ reply }),
+  })
+}
+
+export async function fetchMap(sessionId: string): Promise<WorkMap> {
+  return apiFetch<WorkMap>(`/api/sessions/${sessionId}/map`)
+}
+
+export interface InvoiceStateIn {
+  supplier: string
+  country: string
+  amount: number
+  cost_center: string
+  asset_number: string
+  status: string
+  internal_note: string
+}
+
+export interface ErpActionCheck {
+  action_type: string
+  action_value: string | null
+}
+
+export async function createTutorSession(workMapSessionId: string): Promise<TutorSession> {
+  return apiFetch<TutorSession>('/api/tutor/sessions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ work_map_session_id: workMapSessionId }),
+  })
+}
+
+export async function getTutorSession(id: string): Promise<TutorSession> {
+  return apiFetch<TutorSession>(`/api/tutor/sessions/${id}`)
+}
+
+export async function endTutorSession(id: string): Promise<void> {
+  await apiFetch<unknown>(`/api/tutor/sessions/${id}/end`, { method: 'POST' })
+}
+
+export async function checkAction(
+  tutorId: string,
+  action: ErpActionCheck,
+  invoice: InvoiceStateIn,
+): Promise<CheckVerdict> {
+  return apiFetch<CheckVerdict>(`/api/tutor/sessions/${tutorId}/check`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...action, invoice }),
+  })
+}
+
+export async function getTutorSummary(id: string): Promise<MasterySummary> {
+  return apiFetch<MasterySummary>(`/api/tutor/sessions/${id}/summary`, { method: 'POST' })
+}
+
+export async function listTutorSessions(): Promise<TutorSession[]> {
+  return apiFetch<TutorSession[]>('/api/tutor/sessions')
+}
+
+export async function fetchPrivacySummary(sessionId: string): Promise<PrivacySummary> {
+  return apiFetch<PrivacySummary>(`/api/sessions/${sessionId}/privacy`)
+}
+
+export async function deleteSession(sessionId: string): Promise<void> {
+  await apiFetch<{ deleted: boolean }>(`/api/sessions/${sessionId}`, {
+    method: 'DELETE',
+  })
+}
+
+export async function forgetLastQA(sessionId: string): Promise<ForgetThatRecord> {
+  return apiFetch<ForgetThatRecord>(`/api/sessions/${sessionId}/forget`, {
+    method: 'POST',
+  })
+}
+
+export async function saveMaskRegions(
+  sessionId: string,
+  regions: MaskRegion[],
+): Promise<void> {
+  await apiFetch<{ mask_regions: MaskRegion[] }>(`/api/sessions/${sessionId}/masks`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mask_regions: regions }),
+  })
+}
+
+export async function fetchMaskRegions(sessionId: string): Promise<MaskRegion[]> {
+  const data = await apiFetch<{ mask_regions: MaskRegion[] }>(
+    `/api/sessions/${sessionId}/masks`,
+  )
+  return data.mask_regions
+}
+
+export async function exportMap(sessionId: string, format: 'markdown' | 'json'): Promise<string> {
+  const res = await fetch(`${API_BASE}/api/sessions/${sessionId}/map/export?format=${format}`)
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }))
+    throw new Error((body as { detail?: string }).detail ?? `HTTP ${res.status}`)
+  }
+  return res.text()
+}
+
+export async function fetchApiStatus(): Promise<ApiStatus> {
+  return apiFetch<ApiStatus>('/api/status')
+}
+
+export async function fetchStorage(): Promise<StorageInfo> {
+  return apiFetch<StorageInfo>('/api/storage')
+}
+
+export async function postOffRecordPeriod(
+  sessionId: string,
+  start_t: number,
+  end_t: number | null,
+): Promise<void> {
+  await apiFetch<{ saved: boolean }>(`/api/sessions/${sessionId}/off-record`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ start_t, end_t }),
+  })
+}
+
+export async function listMapsForTutor(): Promise<WorkMap[]> {
+  const sessions = await apiFetch<{ sessions: SessionSummary[] }>('/api/sessions')
+  const maps = await Promise.all(
+    sessions.sessions
+      .filter((s) => s.has_map)
+      .map((s) =>
+        apiFetch<WorkMap>(`/api/sessions/${s.session_id}/map`).catch(() => null),
+      ),
+  )
+  return maps.filter(
+    (m): m is WorkMap => m !== null && (m.expert_confirmed || m.demo_ready),
+  )
+}
+
+export interface LearnMapSummary {
+  session_id: string
+  process_name: string
+  step_count: number
+  guardrail_count: number
+  confirmed_at: number | null
+  expert_confirmed: boolean
+  demo_ready: boolean
+}
+
+export async function fetchLearnMaps(): Promise<LearnMapSummary[]> {
+  return apiFetch<LearnMapSummary[]>('/api/learn/maps')
+}
+
+export async function fetchLearnMap(sessionId: string): Promise<WorkMap> {
+  return apiFetch<WorkMap>(`/api/learn/maps/${sessionId}`)
 }

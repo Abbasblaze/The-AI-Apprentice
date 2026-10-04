@@ -3,6 +3,8 @@ from fastapi import APIRouter, HTTPException, Request
 from app.repositories.sessions import SessionRepository
 from app.repositories.snapshots import SnapshotStore
 from app.schemas import ErrorBody, FrameRequest, FrameResponse, SnapshotIndex
+from app.services.image_redactor import redaction_queue
+from app.services.redactor import redact_events
 from app.services.vision import analyse_frame
 
 router = APIRouter()
@@ -29,13 +31,22 @@ async def post_frame(request: Request, body: FrameRequest) -> FrameResponse:
     request.app.state.last_frames[body.session_id] = body.image
 
     if events:
+        redaction_entries = redact_events(events, "events")
+        repo.append_redaction_log(body.session_id, redaction_entries)
         repo.add_events(body.session_id, events)
+
         snapshot_store: SnapshotStore = request.app.state.snapshot_store
         saved = snapshot_store.save(body.session_id, body.t, body.image)
         if saved:
             repo.add_snapshot(
                 body.session_id, SnapshotIndex(t=body.t, filename=f"{body.t:.3f}.jpg")
             )
+            snapshot_path = snapshot_store.path(body.session_id, body.t)
+            if snapshot_path is not None:
+                mask_regions = repo.load_privacy(body.session_id).mask_regions
+                redaction_queue.submit(
+                    body.session_id, body.t, snapshot_path, list(mask_regions)
+                )
     else:
         repo.add_events(body.session_id, events)
 

@@ -1,4 +1,4 @@
-import type { EventKind } from '@/lib/types'
+import type { CheckVerdict, EventKind } from '@/lib/types'
 
 export type SeedSet = 'expert' | 'newhire'
 export type InvoiceStatus = 'open' | 'held' | 'awaiting-approval' | 'posted'
@@ -16,6 +16,10 @@ export interface Invoice {
   asset_number: string
   status: InvoiceStatus
   internal_note: string
+  contact_name: string
+  contact_email: string
+  contact_phone: string
+  bank_iban: string
 }
 
 export interface ErpState {
@@ -47,7 +51,8 @@ export interface ErpBroadcastEvent {
   summary: string
 }
 
-export interface ErpBroadcastMessage {
-  type: 'erp-events'
-  events: ErpBroadcastEvent[]
-}
+export type ErpBroadcastMessage =
+  | { type: 'erp-events'; events: ErpBroadcastEvent[] }
+  | { type: 'tutor-block'; verdict: CheckVerdict }
+
+export type { CheckVerdict }

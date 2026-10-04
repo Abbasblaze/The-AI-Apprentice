@@ -10,14 +10,27 @@ _ELEVENLABS_SIGNED_URL = "https://api.elevenlabs.io/v1/convai/conversation/get-s
 
 
 @router.get("/voice/signed-url", response_model=SignedUrlResponse)
-async def get_signed_url() -> SignedUrlResponse:
-    if not config.elevenlabs_api_key or not config.elevenlabs_agent_id:
+async def get_signed_url(role: str = "interviewer") -> SignedUrlResponse:
+    if not config.elevenlabs_api_key:
         raise HTTPException(status_code=503, detail="ElevenLabs credentials not configured")
+
+    if role == "debrief":
+        agent_id = config.elevenlabs_debrief_agent_id
+        if not agent_id:
+            raise HTTPException(status_code=503, detail="ElevenLabs debrief agent not configured")
+    elif role == "tutor":
+        agent_id = config.elevenlabs_tutor_agent_id
+        if not agent_id:
+            raise HTTPException(status_code=503, detail="ElevenLabs tutor agent not configured")
+    else:
+        agent_id = config.elevenlabs_agent_id
+        if not agent_id:
+            raise HTTPException(status_code=503, detail="ElevenLabs credentials not configured")
 
     async with httpx.AsyncClient() as client:
         resp = await client.get(
             _ELEVENLABS_SIGNED_URL,
-            params={"agent_id": config.elevenlabs_agent_id},
+            params={"agent_id": agent_id},
             headers={"xi-api-key": config.elevenlabs_api_key},
             timeout=10.0,
         )

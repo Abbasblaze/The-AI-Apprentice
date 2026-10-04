@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react'
 
 import { encodeJpeg, meanDiff, sampleGrayscale } from '@/lib/changeDetection'
+import type { MaskRegion } from '@/lib/types'
 
 const SAMPLE_SIZE = 32
 const DEFAULT_INTERVAL = 2000
@@ -12,6 +13,7 @@ interface Options {
   videoRef: React.RefObject<HTMLVideoElement | null>
   enabled: boolean
   onSample: (imageB64: string | null) => void
+  maskRegions?: MaskRegion[]
   interval?: number
   threshold?: number
 }
@@ -20,6 +22,7 @@ export function useFrameSampler({
   videoRef,
   enabled,
   onSample,
+  maskRegions = [],
   interval = DEFAULT_INTERVAL,
   threshold = DEFAULT_THRESHOLD,
 }: Options): void {
@@ -27,10 +30,15 @@ export function useFrameSampler({
   const sampleCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const encodeCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const onSampleRef = useRef(onSample)
+  const maskRegionsRef = useRef(maskRegions)
 
   useEffect(() => {
     onSampleRef.current = onSample
   }, [onSample])
+
+  useEffect(() => {
+    maskRegionsRef.current = maskRegions
+  }, [maskRegions])
 
   useEffect(() => {
     const sampleCanvas = document.createElement('canvas')
@@ -85,7 +93,7 @@ export function useFrameSampler({
       }
 
       try {
-        const b64 = encodeJpeg(video, encodeCanvas)
+        const b64 = encodeJpeg(video, encodeCanvas, 0.7, maskRegionsRef.current)
         onSampleRef.current(b64)
       } catch {
         onSampleRef.current(null)

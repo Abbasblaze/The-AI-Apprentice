@@ -6,3 +6,9 @@ pydantic-settings
 httpx
 pytest
 pytest-asyncio
+presidio-analyzer
+presidio-anonymizer
+spacy
+presidio-image-redactor
+pytesseract
+pillow
