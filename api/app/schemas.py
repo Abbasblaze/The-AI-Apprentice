@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 import time
 from enum import Enum
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -77,10 +79,16 @@ class TranscriptRole(str, Enum):
     agent = "agent"
 
 
+class TranscriptPhase(str, Enum):
+    interview = "interview"
+    debrief = "debrief"
+
+
 class TranscriptEntry(BaseModel):
     role: TranscriptRole
     message: str
     t: float
+    phase: TranscriptPhase = TranscriptPhase.interview
 
 
 class TranscriptRequest(BaseModel):
@@ -157,6 +165,7 @@ class SessionData(BaseModel):
     transcript: list[TranscriptEntry] = []
     decisions: list[StoredDecision] = []
     snapshots: list[SnapshotIndex] = []
+    debrief_state: Optional[DebriefState] = None
 
 
 class SessionSummary(BaseModel):
@@ -166,6 +175,8 @@ class SessionSummary(BaseModel):
     event_count: int
     erp_event_count: int
     question_count: int
+    has_map: bool = False
+    debrief_phase: Optional[str] = None
 
 
 class SessionRecord(BaseModel):
@@ -185,3 +196,104 @@ class SessionListResponse(BaseModel):
 
 class EndSessionResponse(BaseModel):
     session_id: str
+
+
+class GuardrailKind(str, Enum):
+    limit = "limit"
+    exception = "exception"
+    hold = "hold"
+    stop_and_ask = "stop_and_ask"
+
+
+class GapKind(str, Enum):
+    missing_reason = "missing_reason"
+    unclear_guardrail = "unclear_guardrail"
+    scope = "scope"
+    authority = "authority"
+    unseen_case = "unseen_case"
+    never_do = "never_do"
+
+
+class GapPriority(str, Enum):
+    high = "high"
+    normal = "normal"
+
+
+class Gap(BaseModel):
+    id: str
+    step_id: Optional[str] = None
+    kind: GapKind
+    question: str
+    priority: GapPriority
+    closed: bool = False
+
+
+class ScreenMoment(BaseModel):
+    t: float
+    snapshot_t: float
+    subject: str
+
+
+class StepReason(BaseModel):
+    text: str
+    quote: Optional[str] = None
+    quote_t: Optional[float] = None
+    unconfirmed: bool = False
+
+
+class Guardrail(BaseModel):
+    id: str
+    kind: GuardrailKind
+    rule: str
+    quote: str
+    quote_t: float
+    who_to_ask: Optional[str] = None
+    applies_to: Optional[str] = None
+
+
+class Step(BaseModel):
+    id: str
+    order: int
+    title: str
+    screen_moment: ScreenMoment
+    decision: str
+    reason: StepReason
+    is_judgment_call: bool
+    guardrails: list[Guardrail] = []
+    confidence: float
+    open_gaps: list[str] = []
+
+
+class TeachbackRound(BaseModel):
+    text: str
+    expert_reply: str
+    classification: Literal["confirmed", "corrected", "unclear"]
+    correction: Optional[str] = None
+    patch_summary: Optional[str] = None
+
+
+class WorkMap(BaseModel):
+    session_id: str
+    process_name: str
+    summary: str
+    steps: list[Step]
+    expert_confirmed: bool = False
+    confirmed_at: Optional[float] = None
+    teachback_rounds: list[TeachbackRound] = []
+    version: int = 1
+
+
+class DebriefPhase(str, Enum):
+    gathering = "gathering"
+    teachback = "teachback"
+    confirmed = "confirmed"
+
+
+class DebriefState(BaseModel):
+    phase: DebriefPhase = DebriefPhase.gathering
+    gaps: list[Gap] = []
+    gaps_answered: int = 0
+    map: Optional[WorkMap] = None
+    teachback_text: Optional[str] = None
+    teachback_rounds: list[TeachbackRound] = []
+    move_reason: Optional[str] = None

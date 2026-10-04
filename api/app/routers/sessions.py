@@ -9,6 +9,7 @@ from app.schemas import (
     SessionEventsResponse,
     SessionListResponse,
     SessionRecord,
+    WorkMap,
 )
 
 router = APIRouter()
@@ -55,3 +56,12 @@ async def end_session(request: Request, session_id: str) -> EndSessionResponse:
     repo: SessionRepository = request.app.state.session_repo
     repo.end_session(session_id, time.time())
     return EndSessionResponse(session_id=session_id)
+
+
+@router.get("/sessions/{session_id}/map", response_model=WorkMap)
+async def get_map(request: Request, session_id: str) -> WorkMap:
+    repo: SessionRepository = request.app.state.session_repo
+    work_map = repo.load_map(session_id)
+    if work_map is None:
+        raise HTTPException(status_code=404, detail="Map not found")
+    return work_map

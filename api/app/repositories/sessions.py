@@ -6,12 +6,14 @@ from typing import Optional
 
 from app.schemas import (
     AppEvent,
+    DebriefState,
     SessionData,
     SessionRecord,
     SessionSummary,
     SnapshotIndex,
     StoredDecision,
     TranscriptEntry,
+    WorkMap,
 )
 
 
@@ -55,6 +57,18 @@ class SessionRepository(ABC):
     @abstractmethod
     def get_session_record(self, session_id: str) -> Optional[SessionRecord]: ...
 
+    @abstractmethod
+    def save_debrief_state(self, session_id: str, state: DebriefState) -> None: ...
+
+    @abstractmethod
+    def load_debrief_state(self, session_id: str) -> Optional[DebriefState]: ...
+
+    @abstractmethod
+    def save_map(self, session_id: str, work_map: WorkMap) -> None: ...
+
+    @abstractmethod
+    def load_map(self, session_id: str) -> Optional[WorkMap]: ...
+
 
 class InMemorySessionRepository(SessionRepository):
     def __init__(self) -> None:
@@ -65,6 +79,8 @@ class InMemorySessionRepository(SessionRepository):
         self._snapshots: dict[str, list[SnapshotIndex]] = defaultdict(list)
         self._start_times: dict[str, float] = {}
         self._end_times: dict[str, float] = {}
+        self._debrief_states: dict[str, DebriefState] = {}
+        self._maps: dict[str, WorkMap] = {}
 
     def _ensure_start(self, session_id: str) -> None:
         if session_id not in self._start_times:
@@ -109,6 +125,7 @@ class InMemorySessionRepository(SessionRepository):
         all_ids = set(self._start_times) | set(self._events) | set(self._erp_events)
         summaries = []
         for sid in all_ids:
+            ds = self._debrief_states.get(sid)
             summaries.append(
                 SessionSummary(
                     session_id=sid,
@@ -119,6 +136,8 @@ class InMemorySessionRepository(SessionRepository):
                     question_count=sum(
                         1 for d in self._decisions[sid] if d.should_ask
                     ),
+                    has_map=sid in self._maps,
+                    debrief_phase=ds.phase.value if ds else None,
                 )
             )
         return sorted(summaries, key=lambda s: s.start_time, reverse=True)
@@ -137,6 +156,18 @@ class InMemorySessionRepository(SessionRepository):
             snapshots=self.get_snapshots(session_id),
         )
 
+    def save_debrief_state(self, session_id: str, state: DebriefState) -> None:
+        self._debrief_states[session_id] = state
+
+    def load_debrief_state(self, session_id: str) -> Optional[DebriefState]:
+        return self._debrief_states.get(session_id)
+
+    def save_map(self, session_id: str, work_map: WorkMap) -> None:
+        self._maps[session_id] = work_map
+
+    def load_map(self, session_id: str) -> Optional[WorkMap]:
+        return self._maps.get(session_id)
+
 
 class FileSessionRepository(SessionRepository):
     def __init__(self, base_dir: Path) -> None:
@@ -145,6 +176,9 @@ class FileSessionRepository(SessionRepository):
 
     def _session_path(self, session_id: str) -> Path:
         return self.base_dir / session_id / "session.json"
+
+    def _map_path(self, session_id: str) -> Path:
+        return self.base_dir / session_id / "map.json"
 
     def _load(self, session_id: str) -> SessionData:
         path = self._session_path(session_id)
@@ -214,6 +248,8 @@ class FileSessionRepository(SessionRepository):
                 continue
             try:
                 data = SessionData.model_validate_json(session_path.read_text())
+                has_map = (session_dir / "map.json").exists()
+                ds = data.debrief_state
                 summaries.append(
                     SessionSummary(
                         session_id=data.session_id,
@@ -222,6 +258,8 @@ class FileSessionRepository(SessionRepository):
                         event_count=len(data.events),
                         erp_event_count=len(data.erp_events),
                         question_count=sum(1 for d in data.decisions if d.should_ask),
+                        has_map=has_map,
+                        debrief_phase=ds.phase.value if ds else None,
                     )
                 )
             except Exception:
@@ -243,3 +281,22 @@ class FileSessionRepository(SessionRepository):
             decisions=data.decisions,
             snapshots=data.snapshots,
         )
+
+    def save_debrief_state(self, session_id: str, state: DebriefState) -> None:
+        data = self._load(session_id)
+        data.debrief_state = state
+        self._save(session_id, data)
+
+    def load_debrief_state(self, session_id: str) -> Optional[DebriefState]:
+        return self._load(session_id).debrief_state
+
+    def save_map(self, session_id: str, work_map: WorkMap) -> None:
+        path = self._map_path(session_id)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(work_map.model_dump_json(indent=2))
+
+    def load_map(self, session_id: str) -> Optional[WorkMap]:
+        path = self._map_path(session_id)
+        if not path.exists():
+            return None
+        return WorkMap.model_validate_json(path.read_text())

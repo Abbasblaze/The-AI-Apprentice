@@ -49,11 +49,13 @@ export interface SessionStats {
 }
 
 export type TranscriptRole = 'user' | 'agent'
+export type TranscriptPhase = 'interview' | 'debrief'
 
 export interface TranscriptEntry {
   role: TranscriptRole
   message: string
   t: number
+  phase?: TranscriptPhase
 }
 
 export type QuestionKind = 'reason' | 'limit' | 'exception' | 'escalation' | 'guardrail'
@@ -129,6 +131,8 @@ export interface SessionSummary {
   event_count: number
   erp_event_count: number
   question_count: number
+  has_map: boolean
+  debrief_phase: string | null
 }
 
 export interface SessionRecord {
@@ -140,4 +144,94 @@ export interface SessionRecord {
   transcript: TranscriptEntry[]
   decisions: StoredDecision[]
   snapshots: SnapshotIndexEntry[]
+}
+
+export type GuardrailKind = 'limit' | 'exception' | 'hold' | 'stop_and_ask'
+export type GapKind = 'missing_reason' | 'unclear_guardrail' | 'scope' | 'authority' | 'unseen_case' | 'never_do'
+export type GapPriority = 'high' | 'normal'
+
+export interface Gap {
+  id: string
+  step_id: string | null
+  kind: GapKind
+  question: string
+  priority: GapPriority
+  closed: boolean
+}
+
+export interface ScreenMoment {
+  t: number
+  snapshot_t: number
+  subject: string
+}
+
+export interface StepReason {
+  text: string
+  quote: string | null
+  quote_t: number | null
+  unconfirmed: boolean
+}
+
+export interface Guardrail {
+  id: string
+  kind: GuardrailKind
+  rule: string
+  quote: string
+  quote_t: number
+  who_to_ask: string | null
+  applies_to: string | null
+}
+
+export interface Step {
+  id: string
+  order: number
+  title: string
+  screen_moment: ScreenMoment
+  decision: string
+  reason: StepReason
+  is_judgment_call: boolean
+  guardrails: Guardrail[]
+  confidence: number
+  open_gaps: string[]
+}
+
+export interface TeachbackRound {
+  text: string
+  expert_reply: string
+  classification: 'confirmed' | 'corrected' | 'unclear'
+  correction: string | null
+  patch_summary: string | null
+}
+
+export interface WorkMap {
+  session_id: string
+  process_name: string
+  summary: string
+  steps: Step[]
+  expert_confirmed: boolean
+  confirmed_at: number | null
+  teachback_rounds: TeachbackRound[]
+  version: number
+}
+
+export type DebriefPhase = 'gathering' | 'teachback' | 'confirmed'
+
+export interface DebriefStartResponse {
+  gap: Gap
+  state: { phase: DebriefPhase; gaps_answered: number; total_gaps: number }
+  map: WorkMap
+}
+
+export interface DebriefAnswerResponse {
+  next_gap: Gap | null
+  teachback: string | null
+  move_reason: string | null
+  map: WorkMap
+}
+
+export interface DebriefReplyResponse {
+  classification: 'confirmed' | 'corrected' | 'unclear'
+  partial_teachback: string | null
+  confirmed: boolean
+  map: WorkMap
 }

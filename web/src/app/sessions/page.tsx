@@ -93,7 +93,7 @@ export default function SessionsPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--color-rule)' }}>
-                {['Date', 'Duration', 'Events', 'ERP Events', 'Questions'].map((h) => (
+                {['Date', 'Duration', 'Events', 'ERP Events', 'Questions', 'Map', 'Debrief'].map((h) => (
                   <th
                     key={h}
                     style={{
@@ -132,6 +132,25 @@ export default function SessionsPage() {
                   </td>
                   <td style={{ ...cell, fontVariantNumeric: 'tabular-nums' }}>
                     {s.question_count}
+                  </td>
+                  <td style={cell}>
+                    {s.has_map ? (
+                      <Link
+                        href={`/sessions/${s.session_id}/map`}
+                        style={{ color: 'var(--color-signal)', textDecoration: 'none' }}
+                      >
+                        View map
+                      </Link>
+                    ) : (
+                      <span style={{ color: 'var(--color-graphite)' }}>—</span>
+                    )}
+                  </td>
+                  <td style={cell}>
+                    {s.debrief_phase ? (
+                      <span style={{ color: 'var(--color-graphite)' }}>{s.debrief_phase}</span>
+                    ) : (
+                      <span style={{ color: 'var(--color-graphite)' }}>—</span>
+                    )}
                   </td>
                 </tr>
               ))}

@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import config
 from app.repositories.sessions import FileSessionRepository
 from app.repositories.snapshots import FileSnapshotStore
-from app.routers import director, erp_events, frames, sessions, transcript, voice
+from app.routers import debrief, director, erp_events, frames, sessions, transcript, voice
 
 DATA_DIR = Path("api/data/sessions")
 DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -31,3 +31,4 @@ app.include_router(erp_events.router, prefix="/api")
 app.include_router(voice.router, prefix="/api")
 app.include_router(transcript.router, prefix="/api")
 app.include_router(director.router, prefix="/api")
+app.include_router(debrief.router, prefix="/api")

@@ -4,8 +4,8 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
-import { fetchSession, snapshotUrl } from '@/lib/apiClient'
-import type { AppEvent, QuestionEntry, SessionRecord } from '@/lib/types'
+import { fetchSession, fetchSessions, snapshotUrl } from '@/lib/apiClient'
+import type { AppEvent, QuestionEntry, SessionRecord, SessionSummary } from '@/lib/types'
 
 type TimelineItem =
   | { kind: 'event'; t: number; data: AppEvent }
@@ -64,6 +64,7 @@ function nearestSnapshot(record: SessionRecord, targetT: number): number | null 
 export default function SessionDetailPage() {
   const { id } = useParams<{ id: string }>()
   const [record, setRecord] = useState<SessionRecord | null>(null)
+  const [summary, setSummary] = useState<SessionSummary | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [selectedT, setSelectedT] = useState<number | null>(null)
 
@@ -74,6 +75,12 @@ export default function SessionDetailPage() {
       .catch((err: unknown) =>
         setError(err instanceof Error ? err.message : 'Failed to load session'),
       )
+    fetchSessions()
+      .then((sessions) => {
+        const s = sessions.find((s) => s.session_id === id)
+        if (s) setSummary(s)
+      })
+      .catch(() => {})
   }, [id])
 
   const timeline = record ? buildTimeline(record) : []
@@ -97,13 +104,40 @@ export default function SessionDetailPage() {
             The AI Apprentice
           </Link>
         </h1>
-        <Link
-          href="/sessions"
-          className="text-sm"
-          style={{ color: 'var(--color-signal)', textDecoration: 'none' }}
-        >
-          ← Sessions
-        </Link>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          {record?.end_time && summary?.has_map && (
+            <Link
+              href={`/sessions/${id}/map`}
+              className="text-sm"
+              style={{ color: 'var(--color-signal)', textDecoration: 'none' }}
+            >
+              View map
+            </Link>
+          )}
+          {record?.end_time && (
+            <Link
+              href={`/sessions/${id}/debrief`}
+              className="text-sm"
+              style={{
+                padding: '4px 12px',
+                background: 'var(--color-signal)',
+                color: '#fff',
+                textDecoration: 'none',
+                borderRadius: '4px',
+                fontWeight: 600,
+              }}
+            >
+              Start debrief
+            </Link>
+          )}
+          <Link
+            href="/sessions"
+            className="text-sm"
+            style={{ color: 'var(--color-signal)', textDecoration: 'none' }}
+          >
+            ← Sessions
+          </Link>
+        </div>
       </header>
 
       <div className="flex flex-1 overflow-hidden min-h-0">
