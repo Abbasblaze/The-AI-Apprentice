@@ -143,48 +143,85 @@ function ErpApp({ commitGuard = defaultCommitGuard }: ErpAppProps) {
       : null
 
   return (
-    <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', background: '#0d1117', color: '#c9d1d9' }}>
       <header
         style={{
-          borderBottom: '1px solid #D0D0CE',
-          padding: '10px 20px',
+          borderBottom: '1px solid #21262d',
+          padding: '0 20px',
+          height: '48px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          background: '#EFEFED',
+          background: '#161b22',
+          flexShrink: 0,
         }}
       >
-        <span style={{ fontWeight: 600, fontSize: '14px', letterSpacing: '-0.01em' }}>
-          APEX Financial Workflow
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <span style={{
+            display: 'inline-block',
+            width: '24px',
+            height: '24px',
+            borderRadius: '4px',
+            background: 'linear-gradient(135deg, #1f6feb 0%, #388bfd 100%)',
+            flexShrink: 0,
+          }} />
+          <span style={{ fontWeight: 600, fontSize: '14px', color: '#e6edf3', letterSpacing: '-0.01em' }}>
+            APEX Financial Workflow
+          </span>
+          {tutorId && (
+            <span style={{
+              fontSize: '11px',
+              fontWeight: 600,
+              padding: '2px 7px',
+              borderRadius: '20px',
+              background: 'rgba(56,139,253,0.15)',
+              color: '#388bfd',
+              border: '1px solid rgba(56,139,253,0.3)',
+            }}>
+              Tutor active
+            </span>
+          )}
+        </div>
         <button
           onClick={() => dispatch({ type: 'RESET', seed_set: seedSet })}
           style={{
             fontSize: '12px',
-            color: '#6B7280',
-            background: 'none',
-            border: '1px solid #C0C0BE',
-            borderRadius: '2px',
-            padding: '3px 10px',
+            color: '#8b949e',
+            background: 'transparent',
+            border: '1px solid #30363d',
+            borderRadius: '6px',
+            padding: '4px 12px',
             cursor: 'pointer',
+            transition: 'border-color 0.15s, color 0.15s',
+          }}
+          onMouseEnter={e => {
+            const el = e.currentTarget
+            el.style.borderColor = '#484f58'
+            el.style.color = '#c9d1d9'
+          }}
+          onMouseLeave={e => {
+            const el = e.currentTarget
+            el.style.borderColor = '#30363d'
+            el.style.color = '#8b949e'
           }}
         >
           Reset
         </button>
       </header>
 
-      <div style={{ flex: 1 }}>
+      <div style={{ flex: 1, overflow: 'auto' }}>
         {state.view === 'inbox' || !selectedInvoice ? (
           <div>
-            <div
-              style={{
-                padding: '10px 20px',
-                borderBottom: '1px solid #D0D0CE',
-                fontSize: '13px',
-                fontWeight: 600,
-                color: '#3A3A38',
-              }}
-            >
+            <div style={{
+              padding: '10px 20px',
+              borderBottom: '1px solid #21262d',
+              fontSize: '13px',
+              fontWeight: 600,
+              color: '#8b949e',
+              letterSpacing: '0.04em',
+              textTransform: 'uppercase',
+              background: '#161b22',
+            }}>
               Invoice Inbox
             </div>
             <InvoiceInbox invoices={state.invoices} dispatch={dispatch} />
@@ -199,15 +236,14 @@ function ErpApp({ commitGuard = defaultCommitGuard }: ErpAppProps) {
         )}
       </div>
 
-      <footer
-        style={{
-          borderTop: '1px solid #D0D0CE',
-          padding: '6px 20px',
-          fontSize: '11px',
-          color: '#9CA3AF',
-        }}
-      >
-        Sandbox data. No real invoices.
+      <footer style={{
+        borderTop: '1px solid #21262d',
+        padding: '5px 20px',
+        fontSize: '11px',
+        color: '#484f58',
+        background: '#161b22',
+      }}>
+        Sandbox data · No real invoices
       </footer>
     </div>
   )
@@ -215,7 +251,7 @@ function ErpApp({ commitGuard = defaultCommitGuard }: ErpAppProps) {
 
 export default function ErpPage() {
   return (
-    <Suspense fallback={<div style={{ padding: '20px', color: '#6B7280' }}>Loading…</div>}>
+    <Suspense fallback={<div style={{ padding: '20px', color: '#8b949e', background: '#0d1117', minHeight: '100dvh' }}>Loading…</div>}>
       <ErpApp />
     </Suspense>
   )

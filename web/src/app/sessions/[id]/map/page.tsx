@@ -23,12 +23,16 @@ function fmtTimestamp(unix: number): string {
   })
 }
 
+/* ── Guardrail card ───────────────────────────────────────────────────── */
+
 function GuardrailRow({ guardrail }: { guardrail: Guardrail }) {
   return (
     <div
       style={{
-        borderLeft: '2px solid var(--color-flag)',
-        paddingLeft: '10px',
+        borderLeft: '3px solid #f59e0b',
+        background: 'rgba(245,158,11,0.06)',
+        borderRadius: '0 6px 6px 0',
+        padding: '10px 14px',
         marginBottom: '10px',
       }}
     >
@@ -36,33 +40,34 @@ function GuardrailRow({ guardrail }: { guardrail: Guardrail }) {
         style={{
           fontSize: '10px',
           fontWeight: 700,
-          color: 'var(--color-flag)',
+          color: '#f59e0b',
           textTransform: 'uppercase',
-          letterSpacing: '0.06em',
-          marginBottom: '3px',
+          letterSpacing: '0.07em',
+          marginBottom: '4px',
         }}
       >
         {guardrail.kind.replace('_', ' ')}
       </div>
-      <div style={{ fontSize: '13px', color: 'var(--color-ink)', marginBottom: '4px' }}>
+      <div style={{ fontSize: '13px', color: '#e2e8f0', marginBottom: '5px', lineHeight: 1.45 }}>
         {guardrail.rule}
       </div>
       {guardrail.applies_to && (
-        <div style={{ fontSize: '12px', color: 'var(--color-graphite)', marginBottom: '2px' }}>
+        <div style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '2px' }}>
           Applies to: {guardrail.applies_to}
         </div>
       )}
       {guardrail.who_to_ask && (
-        <div style={{ fontSize: '12px', color: 'var(--color-graphite)', marginBottom: '2px' }}>
+        <div style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '2px' }}>
           Ask: {guardrail.who_to_ask}
         </div>
       )}
       <div
         style={{
           fontSize: '12px',
-          color: 'var(--color-graphite)',
+          color: '#64748b',
           fontStyle: 'italic',
-          marginTop: '4px',
+          marginTop: '5px',
+          lineHeight: 1.4,
         }}
       >
         &ldquo;{guardrail.quote}&rdquo;
@@ -73,7 +78,7 @@ function GuardrailRow({ guardrail }: { guardrail: Guardrail }) {
             padding: '0 4px',
             cursor: 'default',
             fontSize: '11px',
-            color: 'var(--color-graphite)',
+            color: '#64748b',
             fontStyle: 'normal',
           }}
         >
@@ -83,6 +88,45 @@ function GuardrailRow({ guardrail }: { guardrail: Guardrail }) {
     </div>
   )
 }
+
+/* ── Section label ────────────────────────────────────────────────────── */
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      style={{
+        fontSize: '10px',
+        fontWeight: 700,
+        color: '#64748b',
+        textTransform: 'uppercase',
+        letterSpacing: '0.07em',
+        marginBottom: '6px',
+      }}
+    >
+      {children}
+    </div>
+  )
+}
+
+/* ── Dark info card ───────────────────────────────────────────────────── */
+
+function InfoCard({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      style={{
+        background: '#1e293b',
+        border: '1px solid #334155',
+        borderRadius: '8px',
+        padding: '12px 14px',
+        marginBottom: '10px',
+      }}
+    >
+      {children}
+    </div>
+  )
+}
+
+/* ── Step detail pane ─────────────────────────────────────────────────── */
 
 function StepDetail({
   step,
@@ -97,109 +141,164 @@ function StepDetail({
 
   return (
     <div style={{ height: '100%', overflow: 'auto', padding: '0' }}>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={snapSrc}
-        alt={`Snapshot for ${step.title}`}
-        style={{ width: '100%', display: 'block' }}
-      />
+      {/* Snapshot */}
+      <div style={{ position: 'relative' }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={snapSrc}
+          alt={`Snapshot for ${step.title}`}
+          style={{
+            width: '100%',
+            display: 'block',
+            borderRadius: '0 0 10px 10px',
+          }}
+        />
+        <div
+          style={{
+            position: 'absolute',
+            bottom: '10px',
+            left: '14px',
+            background: 'rgba(0,0,0,0.55)',
+            backdropFilter: 'blur(4px)',
+            borderRadius: '5px',
+            padding: '3px 8px',
+            fontSize: '11px',
+            color: '#cbd5e1',
+          }}
+        >
+          {step.screen_moment.subject}
+        </div>
+      </div>
 
-      <div style={{ padding: '16px' }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', marginBottom: '8px' }}>
-          <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--color-ink)' }}>
+      <div style={{ padding: '18px 20px' }}>
+        {/* Title row */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            marginBottom: '14px',
+            flexWrap: 'wrap',
+          }}
+        >
+          <div
+            style={{
+              fontSize: '16px',
+              fontWeight: 700,
+              color: '#f1f5f9',
+              letterSpacing: '-0.01em',
+            }}
+          >
             {step.title}
           </div>
           {step.is_judgment_call && (
             <span
               style={{
-                fontSize: '11px',
-                fontVariant: 'small-caps',
-                color: 'var(--color-graphite)',
-                letterSpacing: '0.04em',
+                fontSize: '10px',
+                fontWeight: 600,
+                background: 'rgba(168,85,247,0.15)',
+                color: '#c084fc',
+                border: '1px solid rgba(168,85,247,0.3)',
+                borderRadius: '4px',
+                padding: '2px 7px',
+                letterSpacing: '0.05em',
+                textTransform: 'uppercase',
               }}
             >
-              judgment call
+              Judgment call
             </span>
           )}
         </div>
 
-        <div
-          style={{
-            fontSize: '13px',
-            color: 'var(--color-ink)',
-            marginBottom: '14px',
-            borderBottom: '1px solid var(--color-rule)',
-            paddingBottom: '14px',
-          }}
-        >
-          {step.decision}
+        {/* Decision */}
+        <div style={{ marginBottom: '10px' }}>
+          <SectionLabel>Decision</SectionLabel>
+          <InfoCard>
+            <div style={{ fontSize: '13px', color: '#e2e8f0', lineHeight: 1.55 }}>
+              {step.decision}
+            </div>
+          </InfoCard>
         </div>
 
-        <div style={{ marginBottom: '14px' }}>
-          <div
-            style={{
-              fontSize: '11px',
-              fontWeight: 600,
-              color: 'var(--color-graphite)',
-              textTransform: 'uppercase',
-              letterSpacing: '0.04em',
-              marginBottom: '6px',
-            }}
-          >
-            Reason
-          </div>
-          <div style={{ fontSize: '13px', color: 'var(--color-ink)', marginBottom: '6px' }}>
-            {step.reason.text}
-          </div>
-          {step.reason.quote && (
-            <div
-              style={{
-                fontSize: '12px',
-                color: 'var(--color-graphite)',
-                fontStyle: 'italic',
-              }}
-            >
-              &ldquo;{step.reason.quote}&rdquo;
-              {step.reason.quote_t !== null && (
-                <button
-                  onClick={() => step.reason.quote_t !== null && onSnapshotSelect(step.reason.quote_t)}
+        {/* Reason */}
+        <div style={{ marginBottom: '10px' }}>
+          <SectionLabel>Reason</SectionLabel>
+          <InfoCard>
+            <div style={{ fontSize: '13px', color: '#e2e8f0', lineHeight: 1.55, marginBottom: step.reason.quote ? '8px' : '0' }}>
+              {step.reason.text}
+            </div>
+            {step.reason.quote && (
+              <div
+                style={{
+                  fontSize: '12px',
+                  color: '#64748b',
+                  fontStyle: 'italic',
+                  lineHeight: 1.4,
+                }}
+              >
+                &ldquo;{step.reason.quote}&rdquo;
+                {step.reason.quote_t !== null && (
+                  <button
+                    onClick={() =>
+                      step.reason.quote_t !== null && onSnapshotSelect(step.reason.quote_t)
+                    }
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      padding: '0 4px',
+                      cursor: 'pointer',
+                      fontSize: '11px',
+                      color: '#475569',
+                      fontStyle: 'normal',
+                      textDecoration: 'underline',
+                    }}
+                  >
+                    [{fmtT(step.reason.quote_t)}]
+                  </button>
+                )}
+              </div>
+            )}
+            {step.reason.unconfirmed && (
+              <div
+                style={{
+                  fontSize: '11px',
+                  color: '#64748b',
+                  marginTop: '6px',
+                  fontStyle: 'italic',
+                }}
+              >
+                Not confirmed by the expert
+              </div>
+            )}
+          </InfoCard>
+        </div>
+
+        {/* Expert said (open gaps) */}
+        {step.open_gaps.length > 0 && (
+          <div style={{ marginBottom: '10px' }}>
+            <SectionLabel>Expert said</SectionLabel>
+            <InfoCard>
+              {step.open_gaps.map((gap, i) => (
+                <div
+                  key={i}
                   style={{
-                    background: 'none',
-                    border: 'none',
-                    padding: '0 4px',
-                    cursor: 'pointer',
-                    fontSize: '11px',
-                    color: 'var(--color-graphite)',
-                    fontStyle: 'normal',
-                    textDecoration: 'underline',
+                    fontSize: '13px',
+                    color: '#94a3b8',
+                    lineHeight: 1.5,
+                    marginBottom: i < step.open_gaps.length - 1 ? '6px' : '0',
                   }}
                 >
-                  [{fmtT(step.reason.quote_t)}]
-                </button>
-              )}
-            </div>
-          )}
-          {step.reason.unconfirmed && (
-            <div style={{ fontSize: '11px', color: 'var(--color-graphite)', marginTop: '4px' }}>
-              Not confirmed by the expert
-            </div>
-          )}
-        </div>
+                  {gap}
+                </div>
+              ))}
+            </InfoCard>
+          </div>
+        )}
 
+        {/* Guardrails */}
         {step.guardrails.length > 0 && (
           <div>
-            <div
-              style={{
-                fontSize: '11px',
-                fontWeight: 600,
-                color: 'var(--color-graphite)',
-                textTransform: 'uppercase',
-                letterSpacing: '0.04em',
-                marginBottom: '8px',
-              }}
-            >
-              Guardrails
-            </div>
+            <SectionLabel>Guardrails</SectionLabel>
             {step.guardrails.map((g) => (
               <GuardrailRow key={g.id} guardrail={g} />
             ))}
@@ -209,6 +308,8 @@ function StepDetail({
     </div>
   )
 }
+
+/* ── Export panel modal ───────────────────────────────────────────────── */
 
 function ExportPanel({
   sessionId,
@@ -227,9 +328,15 @@ function ExportPanel({
   useEffect(() => {
     let cancelled = false
     exportMap(sessionId, format)
-      .then((text) => { if (!cancelled) setPreview(text) })
-      .catch((e: unknown) => { if (!cancelled) setErr(e instanceof Error ? e.message : 'Export failed') })
-    return () => { cancelled = true }
+      .then((text) => {
+        if (!cancelled) setPreview(text)
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) setErr(e instanceof Error ? e.message : 'Export failed')
+      })
+    return () => {
+      cancelled = true
+    }
   }, [sessionId, format])
 
   function handleFormatChange(f: 'markdown' | 'json') {
@@ -264,7 +371,8 @@ function ExportPanel({
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(0,0,0,0.45)',
+        background: 'rgba(0,0,0,0.72)',
+        backdropFilter: 'blur(3px)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -274,55 +382,64 @@ function ExportPanel({
     >
       <div
         style={{
-          background: 'var(--color-panel)',
-          border: '1px solid var(--color-rule)',
-          borderRadius: '6px',
+          background: '#0f172a',
+          border: '1px solid #1e293b',
+          borderRadius: '12px',
           width: 'min(760px, 95vw)',
           maxHeight: '85vh',
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
+          boxShadow: '0 25px 60px rgba(0,0,0,0.6)',
         }}
       >
+        {/* Header */}
         <div
           style={{
-            padding: '14px 18px',
-            borderBottom: '1px solid var(--color-rule)',
+            padding: '16px 20px',
+            borderBottom: '1px solid #1e293b',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
           }}
         >
           <div>
-            <div style={{ fontWeight: 600, fontSize: '14px', color: 'var(--color-ink)' }}>
+            <div style={{ fontWeight: 700, fontSize: '15px', color: '#f1f5f9' }}>
               Instructions for an agent
             </div>
-            <div style={{ fontSize: '12px', color: 'var(--color-graphite)', marginTop: '2px' }}>
+            <div style={{ fontSize: '12px', color: '#64748b', marginTop: '3px' }}>
               Every step, hard stop, and gap — ready to load into an agent.
             </div>
           </div>
           <button
             onClick={onClose}
             style={{
-              background: 'none',
-              border: 'none',
+              background: 'rgba(255,255,255,0.06)',
+              border: '1px solid #334155',
+              borderRadius: '6px',
               cursor: 'pointer',
-              fontSize: '18px',
-              color: 'var(--color-graphite)',
+              fontSize: '16px',
+              color: '#94a3b8',
               lineHeight: 1,
+              width: '28px',
+              height: '28px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
             }}
           >
             ×
           </button>
         </div>
 
+        {/* Toolbar */}
         <div
           style={{
-            padding: '10px 18px',
-            borderBottom: '1px solid var(--color-rule)',
+            padding: '10px 20px',
+            borderBottom: '1px solid #1e293b',
             display: 'flex',
             alignItems: 'center',
-            gap: '8px',
+            gap: '6px',
           }}
         >
           {(['markdown', 'json'] as const).map((f) => (
@@ -330,13 +447,16 @@ function ExportPanel({
               key={f}
               onClick={() => handleFormatChange(f)}
               style={{
-                padding: '4px 10px',
+                padding: '4px 12px',
                 fontSize: '12px',
-                borderRadius: '4px',
-                border: '1px solid var(--color-rule)',
-                background: format === f ? 'var(--color-ink)' : 'none',
-                color: format === f ? 'var(--color-paper)' : 'var(--color-ink)',
+                fontWeight: 600,
+                borderRadius: '5px',
+                border: '1px solid',
+                borderColor: format === f ? '#3b82f6' : '#334155',
+                background: format === f ? 'rgba(59,130,246,0.15)' : 'transparent',
+                color: format === f ? '#93c5fd' : '#94a3b8',
                 cursor: 'pointer',
+                transition: 'all 0.15s',
               }}
             >
               {f === 'markdown' ? 'Markdown' : 'JSON'}
@@ -347,29 +467,29 @@ function ExportPanel({
             onClick={handleCopy}
             disabled={!preview}
             style={{
-              padding: '4px 12px',
+              padding: '4px 14px',
               fontSize: '12px',
-              borderRadius: '4px',
-              border: '1px solid var(--color-rule)',
-              background: 'none',
+              borderRadius: '5px',
+              border: '1px solid #334155',
+              background: 'transparent',
               cursor: preview ? 'pointer' : 'default',
-              color: 'var(--color-ink)',
+              color: preview ? '#cbd5e1' : '#475569',
               opacity: preview ? 1 : 0.5,
             }}
           >
-            {copied ? 'Copied' : 'Copy'}
+            {copied ? 'Copied!' : 'Copy'}
           </button>
           <button
             onClick={handleDownload}
             disabled={!preview}
             style={{
-              padding: '4px 12px',
+              padding: '4px 14px',
               fontSize: '12px',
-              borderRadius: '4px',
-              border: '1px solid var(--color-rule)',
-              background: 'none',
+              borderRadius: '5px',
+              border: '1px solid #334155',
+              background: 'transparent',
               cursor: preview ? 'pointer' : 'default',
-              color: 'var(--color-ink)',
+              color: preview ? '#cbd5e1' : '#475569',
               opacity: preview ? 1 : 0.5,
             }}
           >
@@ -377,22 +497,24 @@ function ExportPanel({
           </button>
         </div>
 
-        <div style={{ flex: 1, overflow: 'auto', padding: '16px 18px' }}>
+        {/* Preview */}
+        <div style={{ flex: 1, overflow: 'auto', padding: '16px 20px' }}>
           {fetching && (
-            <div style={{ color: 'var(--color-graphite)', fontSize: '13px' }}>Loading…</div>
+            <div style={{ color: '#64748b', fontSize: '13px' }}>Loading…</div>
           )}
           {err && (
-            <div style={{ color: 'var(--color-flag)', fontSize: '13px' }}>{err}</div>
+            <div style={{ color: '#f87171', fontSize: '13px' }}>{err}</div>
           )}
           {preview && !fetching && (
             <pre
               style={{
-                fontFamily: 'monospace',
+                fontFamily: 'ui-monospace, "Fira Code", monospace',
                 fontSize: '12px',
-                color: 'var(--color-ink)',
+                color: '#94a3b8',
                 whiteSpace: 'pre-wrap',
                 wordBreak: 'break-word',
                 margin: 0,
+                lineHeight: 1.6,
               }}
             >
               {preview}
@@ -403,6 +525,8 @@ function ExportPanel({
     </div>
   )
 }
+
+/* ── Page ─────────────────────────────────────────────────────────────── */
 
 export default function MapPage() {
   const { id } = useParams<{ id: string }>()
@@ -430,35 +554,51 @@ export default function MapPage() {
   return (
     <div
       className="flex flex-col overflow-hidden"
-      style={{ height: '100dvh', backgroundColor: 'var(--color-paper)' }}
+      style={{ height: '100dvh', background: '#0a0f1e' }}
     >
       {showExport && id && (
         <ExportPanel sessionId={id} onClose={() => setShowExport(false)} />
       )}
+
+      {/* ── Header ── */}
       <header
-        style={{ borderBottom: '1px solid var(--color-rule)' }}
-        className="flex items-center justify-between px-5 py-3 bg-panel shrink-0"
+        style={{
+          borderBottom: '1px solid #1e293b',
+          background: '#0d1424',
+          flexShrink: 0,
+        }}
+        className="flex items-center justify-between px-5 py-3"
       >
         <h1
-          className="text-base font-medium tracking-tight"
-          style={{ fontFamily: 'var(--font-heading)' }}
+          className="text-base font-semibold tracking-tight"
+          style={{ color: '#f1f5f9', fontFamily: 'var(--font-heading)' }}
         >
           <Link href="/" style={{ color: 'inherit', textDecoration: 'none' }}>
             The AI Apprentice
           </Link>
         </h1>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           {workMap?.expert_confirmed && (
             <button
               onClick={() => setShowExport(true)}
               style={{
-                fontSize: '13px',
-                padding: '4px 12px',
-                borderRadius: '4px',
-                border: '1px solid var(--color-rule)',
-                background: 'none',
+                fontSize: '12px',
+                fontWeight: 600,
+                padding: '5px 14px',
+                borderRadius: '6px',
+                border: '1px solid #334155',
+                background: 'transparent',
                 cursor: 'pointer',
-                color: 'var(--color-ink)',
+                color: '#cbd5e1',
+                transition: 'background 0.15s, border-color 0.15s',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.05)'
+                e.currentTarget.style.borderColor = '#475569'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'transparent'
+                e.currentTarget.style.borderColor = '#334155'
               }}
             >
               Export
@@ -466,160 +606,234 @@ export default function MapPage() {
           )}
           <Link
             href={`/sessions/${id}/privacy`}
-            className="text-sm"
-            style={{ color: 'var(--color-signal)', textDecoration: 'none' }}
+            style={{
+              fontSize: '13px',
+              color: '#64748b',
+              textDecoration: 'none',
+              transition: 'color 0.15s',
+            }}
           >
             Privacy
           </Link>
           <Link
             href={`/sessions/${id}`}
-            className="text-sm"
-            style={{ color: 'var(--color-signal)', textDecoration: 'none' }}
+            style={{
+              fontSize: '13px',
+              color: '#64748b',
+              textDecoration: 'none',
+              transition: 'color 0.15s',
+            }}
           >
-            ← Session
+            Session
           </Link>
         </div>
       </header>
 
+      {/* ── Error / Loading ── */}
       {error && (
-        <p className="p-4 text-sm" style={{ color: 'var(--color-flag)' }}>
+        <p className="p-4 text-sm" style={{ color: '#f87171' }}>
           {error}
         </p>
       )}
-
       {!workMap && !error && (
-        <p className="p-4 text-sm" style={{ color: 'var(--color-graphite)' }}>
+        <p className="p-4 text-sm" style={{ color: '#475569' }}>
           Loading…
         </p>
       )}
 
+      {/* ── Content ── */}
       {workMap && (
         <>
+          {/* Map meta bar */}
           <div
             style={{
               padding: '12px 20px',
-              borderBottom: '1px solid var(--color-rule)',
-              background: 'var(--color-panel)',
+              borderBottom: '1px solid #1e293b',
+              background: '#0d1424',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '14px',
+              flexWrap: 'wrap',
             }}
           >
-            <div
-              style={{
-                fontSize: '16px',
-                fontWeight: 700,
-                color: 'var(--color-ink)',
-                fontFamily: 'var(--font-heading)',
-                marginBottom: '2px',
-              }}
-            >
-              {workMap.process_name}
+            <div>
+              <div
+                style={{
+                  fontSize: '15px',
+                  fontWeight: 700,
+                  color: '#f1f5f9',
+                  fontFamily: 'var(--font-heading)',
+                  letterSpacing: '-0.01em',
+                }}
+              >
+                {workMap.process_name}
+              </div>
+              <div style={{ fontSize: '12px', color: '#475569', marginTop: '2px' }}>
+                {workMap.steps.length} steps · {judgmentCalls} judgment call{judgmentCalls !== 1 ? 's' : ''} · {guardrailCount} guardrail{guardrailCount !== 1 ? 's' : ''}
+              </div>
             </div>
-            <div style={{ fontSize: '12px', color: 'var(--color-graphite)', marginBottom: '2px' }}>
-              {workMap.steps.length} steps · {judgmentCalls} judgment calls · {guardrailCount} guardrails
-            </div>
-            <div style={{ fontSize: '12px', color: workMap.expert_confirmed ? 'var(--color-signal)' : 'var(--color-graphite)' }}>
-              {workMap.expert_confirmed
-                ? `Confirmed by the expert${workMap.confirmed_at ? ` · ${fmtTimestamp(workMap.confirmed_at)}` : ''}`
-                : 'Awaiting confirmation'}
-            </div>
+            <div style={{ flex: 1 }} />
+            {workMap.expert_confirmed ? (
+              <span
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  background: 'rgba(34,197,94,0.12)',
+                  color: '#4ade80',
+                  border: '1px solid rgba(34,197,94,0.25)',
+                  borderRadius: '20px',
+                  padding: '3px 10px',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                Confirmed{workMap.confirmed_at ? ` · ${fmtTimestamp(workMap.confirmed_at)}` : ''}
+              </span>
+            ) : (
+              <span
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  background: 'rgba(100,116,139,0.12)',
+                  color: '#64748b',
+                  border: '1px solid rgba(100,116,139,0.2)',
+                  borderRadius: '20px',
+                  padding: '3px 10px',
+                }}
+              >
+                Awaiting confirmation
+              </span>
+            )}
           </div>
 
+          {/* ── Two-column layout ── */}
           <div className="flex flex-1 overflow-hidden min-h-0">
+            {/* Steps sidebar */}
             <div
               style={{
-                width: '320px',
+                width: '300px',
                 flexShrink: 0,
-                borderRight: '1px solid var(--color-rule)',
+                borderRight: '1px solid #1e293b',
                 overflow: 'auto',
+                background: '#0a0f1e',
               }}
             >
-              {workMap.steps.map((step) => (
-                <button
-                  key={step.id}
-                  onClick={() => setSelectedStepId(step.id)}
-                  style={{
-                    display: 'flex',
-                    width: '100%',
-                    gap: '10px',
-                    padding: '10px 14px',
-                    background: 'none',
-                    border: 'none',
-                    borderBottom: '1px solid var(--color-rule)',
-                    borderLeft: selectedStepId === step.id ? '3px solid var(--color-signal)' : '3px solid transparent',
-                    textAlign: 'left',
-                    cursor: 'pointer',
-                  }}
-                >
-                  <div
+              {workMap.steps.map((step) => {
+                const active = selectedStepId === step.id
+                return (
+                  <button
+                    key={step.id}
+                    onClick={() => setSelectedStepId(step.id)}
                     style={{
-                      width: '22px',
-                      height: '22px',
-                      borderRadius: '50%',
-                      background: 'var(--color-ink)',
-                      color: 'var(--color-paper)',
-                      fontSize: '11px',
-                      fontWeight: 700,
                       display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0,
+                      width: '100%',
+                      gap: '10px',
+                      padding: '10px 12px',
+                      background: active ? '#1e293b' : 'transparent',
+                      border: 'none',
+                      borderBottom: '1px solid #1e293b',
+                      borderLeft: `3px solid ${active ? '#3b82f6' : 'transparent'}`,
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      transition: 'background 0.12s',
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!active) e.currentTarget.style.background = 'rgba(255,255,255,0.03)'
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!active) e.currentTarget.style.background = 'transparent'
                     }}
                   >
-                    {step.order}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
+                    {/* Order circle */}
                     <div
                       style={{
-                        fontSize: '13px',
-                        fontWeight: 600,
-                        color: 'var(--color-ink)',
-                        marginBottom: '2px',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {step.title}
-                    </div>
-                    <div
-                      style={{
+                        width: '24px',
+                        height: '24px',
+                        borderRadius: '50%',
+                        background: active
+                          ? 'linear-gradient(135deg, #3b82f6, #6366f1)'
+                          : 'linear-gradient(135deg, #1e3a5f, #2d2f6b)',
+                        color: active ? '#fff' : '#93c5fd',
                         fontSize: '11px',
-                        color: 'var(--color-graphite)',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
+                        fontWeight: 700,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                        marginTop: '1px',
                       }}
                     >
-                      {step.decision}
+                      {step.order}
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
-                      {step.is_judgment_call && (
-                        <span
-                          style={{
-                            fontSize: '10px',
-                            fontVariant: 'small-caps',
-                            color: 'var(--color-graphite)',
-                          }}
-                        >
-                          judgment call
-                        </span>
-                      )}
-                      {step.guardrails.length > 0 && (
-                        <span
-                          style={{
-                            fontSize: '10px',
-                            color: 'var(--color-flag)',
-                          }}
-                        >
-                          {step.guardrails.length} guardrail{step.guardrails.length !== 1 ? 's' : ''}
-                        </span>
+
+                    {/* Step info */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div
+                        style={{
+                          fontSize: '13px',
+                          fontWeight: 600,
+                          color: active ? '#f1f5f9' : '#cbd5e1',
+                          marginBottom: '2px',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {step.title}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: '11px',
+                          color: '#64748b',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          marginBottom: '5px',
+                        }}
+                      >
+                        {step.decision}
+                      </div>
+                      {(step.is_judgment_call || step.guardrails.length > 0) && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
+                          {step.guardrails.length > 0 && (
+                            <span
+                              style={{
+                                fontSize: '10px',
+                                fontWeight: 600,
+                                background: 'rgba(245,158,11,0.12)',
+                                color: '#fbbf24',
+                                border: '1px solid rgba(245,158,11,0.25)',
+                                borderRadius: '4px',
+                                padding: '1px 6px',
+                              }}
+                            >
+                              {step.guardrails.length} guardrail{step.guardrails.length !== 1 ? 's' : ''}
+                            </span>
+                          )}
+                          {step.is_judgment_call && (
+                            <span
+                              style={{
+                                fontSize: '10px',
+                                fontWeight: 600,
+                                background: 'rgba(168,85,247,0.12)',
+                                color: '#c084fc',
+                                border: '1px solid rgba(168,85,247,0.25)',
+                                borderRadius: '4px',
+                                padding: '1px 6px',
+                              }}
+                            >
+                              Judgment
+                            </span>
+                          )}
+                        </div>
                       )}
                     </div>
-                  </div>
-                </button>
-              ))}
+                  </button>
+                )
+              })}
             </div>
 
-            <div style={{ flex: 1, overflow: 'hidden', minWidth: 0 }}>
+            {/* Step detail */}
+            <div style={{ flex: 1, overflow: 'hidden', minWidth: 0, background: '#0a0f1e' }}>
               {selectedStep ? (
                 <StepDetail
                   step={selectedStep}
@@ -638,7 +852,7 @@ export default function MapPage() {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    color: 'var(--color-graphite)',
+                    color: '#475569',
                     fontSize: '13px',
                   }}
                 >

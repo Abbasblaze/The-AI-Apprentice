@@ -13,24 +13,210 @@ function fmtT(t: number): string {
   return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
 }
 
-const sectionTitle: React.CSSProperties = {
-  fontSize: '13px',
-  fontWeight: 600,
-  color: 'var(--color-graphite)',
-  fontFamily: 'var(--font-heading)',
-  marginBottom: '8px',
-  marginTop: '28px',
+// ─── Redaction pill list ─────────────────────────────────────────────────────
+
+function RedactionPills({ counts }: { counts: Record<string, number> }) {
+  const entries = Object.entries(counts)
+  if (entries.length === 0) {
+    return <p style={mutedStyle}>Nothing redacted.</p>
+  }
+
+  const max = Math.max(...entries.map(([, c]) => c))
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      {entries.map(([type, count]) => (
+        <div key={type} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <span
+            style={{
+              minWidth: '120px',
+              fontSize: '12px',
+              fontWeight: 600,
+              color: 'var(--color-ink-muted)',
+              textTransform: 'capitalize',
+              letterSpacing: '0.01em',
+              flexShrink: 0,
+            }}
+          >
+            {type}
+          </span>
+          <div
+            style={{
+              flex: 1,
+              height: '6px',
+              background: 'var(--color-border)',
+              borderRadius: '3px',
+              overflow: 'hidden',
+            }}
+          >
+            <div
+              style={{
+                height: '100%',
+                width: `${Math.round((count / max) * 100)}%`,
+                background: 'var(--color-signal)',
+                borderRadius: '3px',
+                transition: 'width 0.4s ease',
+              }}
+            />
+          </div>
+          <span
+            style={{
+              fontSize: '12px',
+              fontVariantNumeric: 'tabular-nums',
+              color: 'var(--color-ink)',
+              fontWeight: 600,
+              minWidth: '28px',
+              textAlign: 'right',
+              flexShrink: 0,
+            }}
+          >
+            {count}
+          </span>
+        </div>
+      ))}
+    </div>
+  )
 }
 
-const body: React.CSSProperties = {
-  fontSize: '13px',
-  color: 'var(--color-ink)',
+// ─── Timeline entry ──────────────────────────────────────────────────────────
+
+function TimelineEntry({
+  label,
+  sublabel,
+}: {
+  label: string
+  sublabel?: string
+}) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: '10px',
+        paddingBottom: '10px',
+      }}
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
+        <div
+          style={{
+            width: '8px',
+            height: '8px',
+            borderRadius: '50%',
+            background: 'var(--color-signal)',
+            marginTop: '4px',
+          }}
+        />
+        <div
+          style={{
+            width: '1px',
+            flex: 1,
+            background: 'var(--color-border)',
+            minHeight: '16px',
+            marginTop: '3px',
+          }}
+        />
+      </div>
+      <div>
+        <span style={{ fontSize: '13px', color: 'var(--color-ink)', fontVariantNumeric: 'tabular-nums' }}>
+          {label}
+        </span>
+        {sublabel && (
+          <span
+            style={{
+              marginLeft: '8px',
+              fontSize: '12px',
+              color: 'var(--color-ink-muted)',
+            }}
+          >
+            {sublabel}
+          </span>
+        )}
+      </div>
+    </div>
+  )
 }
 
-const muted: React.CSSProperties = {
-  fontSize: '13px',
-  color: 'var(--color-graphite)',
+// ─── Stat pill ───────────────────────────────────────────────────────────────
+
+function StatPill({ value, label }: { value: number | string; label: string }) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        padding: '10px 16px',
+        background: 'var(--color-surface)',
+        border: '1px solid var(--color-border)',
+        borderRadius: 'var(--radius-sm)',
+        minWidth: '80px',
+      }}
+    >
+      <span
+        style={{
+          fontFamily: 'var(--font-mono)',
+          fontSize: '18px',
+          fontWeight: 700,
+          color: 'var(--color-ink)',
+          lineHeight: 1.1,
+        }}
+      >
+        {value}
+      </span>
+      <span
+        style={{
+          fontSize: '10px',
+          fontWeight: 700,
+          letterSpacing: '0.06em',
+          textTransform: 'uppercase',
+          color: 'var(--color-ink-muted)',
+          marginTop: '4px',
+        }}
+      >
+        {label}
+      </span>
+    </div>
+  )
 }
+
+// ─── Shared styles ───────────────────────────────────────────────────────────
+
+const mutedStyle: React.CSSProperties = {
+  fontSize: '13px',
+  color: 'var(--color-ink-muted)',
+}
+
+const sectionHeading: React.CSSProperties = {
+  fontSize: '10px',
+  fontWeight: 700,
+  letterSpacing: '0.08em',
+  textTransform: 'uppercase',
+  color: 'var(--color-ink-muted)',
+  marginBottom: '12px',
+}
+
+function GlassCard({
+  children,
+  style,
+}: {
+  children: React.ReactNode
+  style?: React.CSSProperties
+}) {
+  return (
+    <div
+      className="glass-card"
+      style={{
+        padding: '20px',
+        marginBottom: '12px',
+        ...style,
+      }}
+    >
+      {children}
+    </div>
+  )
+}
+
+// ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function PrivacyPage() {
   const params = useParams<{ id: string }>()
@@ -64,6 +250,7 @@ export default function PrivacyPage() {
       className="flex flex-col overflow-hidden"
       style={{ height: '100dvh', backgroundColor: 'var(--color-paper)' }}
     >
+      {/* Header */}
       <header
         style={{ borderBottom: '1px solid var(--color-rule)' }}
         className="flex items-center justify-between px-5 py-3 bg-panel shrink-0"
@@ -85,123 +272,219 @@ export default function PrivacyPage() {
         </Link>
       </header>
 
-      <main className="flex-1 overflow-auto px-6 py-5" style={{ maxWidth: '680px' }}>
-        <h2
-          className="text-sm font-medium"
-          style={{ color: 'var(--color-graphite)', fontFamily: 'var(--font-heading)' }}
-        >
-          Privacy
-        </h2>
+      <main
+        className="flex-1 overflow-auto"
+        style={{ padding: '28px 24px', maxWidth: '700px', width: '100%' }}
+      >
+        {/* Page title */}
+        <div style={{ marginBottom: '24px' }}>
+          <h2
+            style={{
+              fontSize: '20px',
+              fontWeight: 700,
+              color: 'var(--color-ink)',
+              fontFamily: 'var(--font-heading)',
+              marginBottom: '4px',
+            }}
+          >
+            Privacy &amp; Data Controls
+          </h2>
+          <p style={mutedStyle}>
+            Review what was captured, redacted, and removed for this session.
+          </p>
+        </div>
 
+        {/* Error */}
         {error && (
-          <p className="text-sm mt-3" style={{ color: 'var(--color-flag)' }}>
+          <p className="text-sm mb-4" style={{ color: 'var(--color-flag)' }}>
             {error}
           </p>
         )}
 
+        {/* Loading */}
         {summary === null && !error && (
-          <p className="text-sm mt-3" style={muted}>
-            Loading…
-          </p>
+          <p style={mutedStyle}>Loading&hellip;</p>
         )}
 
         {summary !== null && (
           <>
-            <div style={sectionTitle}>What was captured</div>
-            <p style={body}>
-              {summary.total_events} events · {summary.total_erp_events} ERP events ·{' '}
-              {summary.total_transcript_entries} transcript entries ·{' '}
-              {summary.total_snapshots} snapshots
-            </p>
+            {/* ── What was captured ── */}
+            <GlassCard>
+              <div style={sectionHeading}>What was captured</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                <StatPill value={summary.total_events} label="Events" />
+                <StatPill value={summary.total_erp_events} label="ERP events" />
+                <StatPill value={summary.total_transcript_entries} label="Transcript" />
+                <StatPill value={summary.total_snapshots} label="Snapshots" />
+              </div>
+            </GlassCard>
 
-            <div style={sectionTitle}>What was redacted</div>
-            {Object.keys(summary.redaction_counts).length === 0 ? (
-              <p style={muted}>Nothing redacted.</p>
-            ) : (
-              <table style={{ borderCollapse: 'collapse', fontSize: '13px' }}>
-                <thead>
-                  <tr style={{ borderBottom: '1px solid var(--color-rule)' }}>
-                    <th style={th}>Type</th>
-                    <th style={th}>Count</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {Object.entries(summary.redaction_counts).map(([type, count]) => (
-                    <tr key={type} style={{ borderBottom: '1px solid var(--color-rule)' }}>
-                      <td style={td}>{type}</td>
-                      <td style={{ ...td, fontVariantNumeric: 'tabular-nums' }}>{count}</td>
-                    </tr>
+            {/* ── What was redacted ── */}
+            <GlassCard>
+              <div style={sectionHeading}>What was redacted</div>
+              <RedactionPills counts={summary.redaction_counts} />
+              {Object.keys(summary.redaction_by_location).length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '14px' }}>
+                  {Object.entries(summary.redaction_by_location).map(([loc, count]) => (
+                    <span
+                      key={loc}
+                      className="chip chip-neutral"
+                    >
+                      {count} in {loc}
+                    </span>
                   ))}
-                </tbody>
-              </table>
-            )}
-            {Object.keys(summary.redaction_by_location).length > 0 && (
-              <p style={{ ...muted, marginTop: '8px' }}>
-                {Object.entries(summary.redaction_by_location)
-                  .map(([loc, count]) => `${count} in ${loc}`)
-                  .join(' · ')}
-              </p>
-            )}
+                </div>
+              )}
+            </GlassCard>
 
-            <div style={sectionTitle}>Off the record</div>
-            {summary.off_record_periods.length === 0 ? (
-              <p style={muted}>No off-record periods</p>
-            ) : (
-              <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-                {summary.off_record_periods.map((p, idx) => (
-                  <li key={idx} style={{ ...body, marginBottom: '4px' }}>
-                    {fmtT(p.start_t)}–{p.end_t === null ? '… (ongoing)' : fmtT(p.end_t)}
-                  </li>
-                ))}
-              </ul>
-            )}
+            {/* ── Off the record ── */}
+            <GlassCard>
+              <div style={sectionHeading}>Off the record</div>
+              {summary.off_record_periods.length === 0 ? (
+                <p style={mutedStyle}>No off-record periods.</p>
+              ) : (
+                <div style={{ paddingTop: '2px' }}>
+                  {summary.off_record_periods.map((p, idx) => (
+                    <TimelineEntry
+                      key={idx}
+                      label={`${fmtT(p.start_t)} – ${p.end_t === null ? '… (ongoing)' : fmtT(p.end_t)}`}
+                      sublabel={
+                        p.end_t !== null
+                          ? `${Math.round(p.end_t - p.start_t)}s`
+                          : undefined
+                      }
+                    />
+                  ))}
+                </div>
+              )}
+            </GlassCard>
 
-            <div style={sectionTitle}>Masked regions</div>
-            <p style={body}>{summary.mask_region_count} regions masked</p>
+            {/* ── Forget that ── */}
+            <GlassCard>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                <div style={sectionHeading}>Content removed with forget-that</div>
+                <button className="btn-ghost" style={{ fontSize: '12px', padding: '4px 10px' }}>
+                  Forget that
+                </button>
+              </div>
+              {summary.forget_that_records.length === 0 ? (
+                <p style={mutedStyle}>Nothing removed.</p>
+              ) : (
+                <div style={{ paddingTop: '2px' }}>
+                  {summary.forget_that_records.map((r, idx) => (
+                    <TimelineEntry
+                      key={idx}
+                      label={fmtT(r.t)}
+                      sublabel={`removed ${r.events_removed} event${r.events_removed !== 1 ? 's' : ''}${r.snapshots_removed > 0 ? `, ${r.snapshots_removed} snapshot${r.snapshots_removed !== 1 ? 's' : ''}` : ''}`}
+                    />
+                  ))}
+                  <div
+                    style={{
+                      marginTop: '4px',
+                      display: 'flex',
+                      gap: '8px',
+                    }}
+                  >
+                    <span className="chip chip-neutral">
+                      {summary.forget_that_records.length} uses
+                    </span>
+                    <span className="chip chip-neutral">
+                      {summary.forget_that_records.reduce((n, r) => n + r.events_removed, 0)} events removed
+                    </span>
+                    <span className="chip chip-neutral">
+                      {summary.forget_that_records.reduce((n, r) => n + r.snapshots_removed, 0)} snapshots removed
+                    </span>
+                  </div>
+                </div>
+              )}
+            </GlassCard>
 
-            <div style={sectionTitle}>Content removed with forget that</div>
-            {summary.forget_that_records.length === 0 ? (
-              <p style={muted}>Nothing removed</p>
-            ) : (
-              <p style={body}>
-                {summary.forget_that_records.length} times ·{' '}
-                {summary.forget_that_records.reduce((n, r) => n + r.events_removed, 0)} events
-                removed ·{' '}
-                {summary.forget_that_records.reduce((n, r) => n + r.snapshots_removed, 0)}{' '}
-                snapshots removed total
-              </p>
-            )}
+            {/* ── Mask regions ── */}
+            <GlassCard>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                <div style={sectionHeading}>Masked regions</div>
+                <button className="btn-ghost" style={{ fontSize: '12px', padding: '4px 10px' }}>
+                  Add mask
+                </button>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    minWidth: '32px',
+                    height: '32px',
+                    padding: '0 10px',
+                    borderRadius: '20px',
+                    background: summary.mask_region_count > 0
+                      ? 'var(--color-signal-dim)'
+                      : 'rgba(136,152,179,0.1)',
+                    color: summary.mask_region_count > 0
+                      ? 'var(--color-signal)'
+                      : 'var(--color-ink-muted)',
+                    fontSize: '14px',
+                    fontWeight: 700,
+                    fontFamily: 'var(--font-mono)',
+                  }}
+                >
+                  {summary.mask_region_count}
+                </span>
+                <span style={{ fontSize: '13px', color: 'var(--color-ink-muted)' }}>
+                  {summary.mask_region_count === 1 ? 'region masked' : 'regions masked'}
+                </span>
+              </div>
+            </GlassCard>
 
-            <div style={sectionTitle}>Delete this session</div>
-            <button
-              onClick={handleDelete}
-              className="px-3 py-1.5 text-sm font-medium"
+            {/* ── Delete session ── */}
+            <GlassCard
               style={{
-                border: '1px solid var(--color-flag)',
-                borderRadius: '4px',
-                color: 'var(--color-flag)',
-                background: 'transparent',
-                cursor: 'pointer',
+                border: '1px solid rgba(239,68,68,0.25)',
+                background: 'rgba(239,68,68,0.04)',
               }}
             >
-              Delete session
-            </button>
+              <div style={sectionHeading}>Danger zone</div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
+                <div>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--color-ink)', marginBottom: '2px' }}>
+                    Delete this session
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--color-ink-muted)' }}>
+                    Permanently removes all events, transcripts, and snapshots. Cannot be undone.
+                  </div>
+                </div>
+                <button
+                  onClick={handleDelete}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    padding: '7px 16px',
+                    border: '1px solid rgba(239,68,68,0.6)',
+                    borderRadius: 'var(--radius-sm)',
+                    color: '#f87171',
+                    background: 'transparent',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    whiteSpace: 'nowrap',
+                    transition: 'background 0.15s, border-color 0.15s',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'rgba(239,68,68,0.1)'
+                    e.currentTarget.style.borderColor = 'rgba(239,68,68,0.9)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'transparent'
+                    e.currentTarget.style.borderColor = 'rgba(239,68,68,0.6)'
+                  }}
+                >
+                  Delete session
+                </button>
+              </div>
+            </GlassCard>
           </>
         )}
       </main>
     </div>
   )
-}
-
-const th: React.CSSProperties = {
-  padding: '6px 16px 6px 0',
-  textAlign: 'left',
-  fontWeight: 600,
-  color: 'var(--color-graphite)',
-  fontSize: '12px',
-}
-
-const td: React.CSSProperties = {
-  padding: '6px 16px 6px 0',
-  color: 'var(--color-ink)',
 }

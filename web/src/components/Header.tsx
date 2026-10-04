@@ -18,12 +18,28 @@ function formatElapsed(seconds: number): string {
   return `${mm}:${ss}`
 }
 
-const VOICE_LABELS: Record<VoiceMode, string> = {
-  idle: '',
-  listening: 'listening',
-  speaking: 'speaking',
-  waiting: 'waiting for answer',
-  'off-record': 'off the record',
+const VOICE_CHIP: Record<
+  Exclude<VoiceMode, 'idle' | 'off-record'>,
+  { label: string; bg: string; dot: string; text: string }
+> = {
+  listening: {
+    label: 'listening',
+    bg: 'rgba(16,185,129,0.12)',
+    dot: '#10b981',
+    text: '#34d399',
+  },
+  speaking: {
+    label: 'speaking',
+    bg: 'rgba(59,130,246,0.12)',
+    dot: '#3b82f6',
+    text: '#60a5fa',
+  },
+  waiting: {
+    label: 'waiting',
+    bg: 'rgba(245,158,11,0.12)',
+    dot: '#f59e0b',
+    text: '#fbbf24',
+  },
 }
 
 export function Header({ isSharing, startTimeRef, voiceMode, isOffRecord }: Props) {
@@ -40,63 +56,109 @@ export function Header({ isSharing, startTimeRef, voiceMode, isOffRecord }: Prop
     }
   }, [isSharing, startTimeRef])
 
-  const voiceLabel = VOICE_LABELS[voiceMode]
   const isOffRecordActive = isOffRecord || voiceMode === 'off-record'
+  const chip =
+    !isOffRecordActive && voiceMode !== 'idle'
+      ? VOICE_CHIP[voiceMode as Exclude<VoiceMode, 'idle' | 'off-record'>] ?? null
+      : null
 
   return (
     <header
-      style={{ borderBottom: '1px solid var(--color-rule)' }}
-      className="flex items-center justify-between px-5 py-3 bg-panel shrink-0"
+      className="flex items-center justify-between px-5 shrink-0"
+      style={{
+        height: '52px',
+        background: 'rgba(10,13,20,0.95)',
+        borderBottom: '1px solid #1e2533',
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
+      }}
     >
-      <h1
-        className="text-base font-medium tracking-tight"
-        style={{ fontFamily: 'var(--font-heading)' }}
+      {/* Logo */}
+      <Link
+        href="/"
+        style={{ textDecoration: 'none' }}
       >
-        The AI Apprentice
-      </h1>
+        <span
+          className="text-base font-semibold tracking-tight"
+          style={{
+            background: 'linear-gradient(90deg, #3d7eff 0%, #7c3aed 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text',
+            fontFamily: 'var(--font-heading)',
+          }}
+        >
+          The AI Apprentice
+        </span>
+      </Link>
 
+      {/* Right side */}
       <div className="flex items-center gap-4">
         <Link
           href="/sessions"
-          className="text-sm"
-          style={{ color: 'var(--color-graphite)', textDecoration: 'none' }}
+          className="text-sm transition-colors"
+          style={{ color: '#8a94a8', textDecoration: 'none' }}
+          onMouseEnter={e => ((e.target as HTMLElement).style.color = '#c9d1e0')}
+          onMouseLeave={e => ((e.target as HTMLElement).style.color = '#8a94a8')}
         >
           Sessions
         </Link>
 
+        <Link
+          href="/demo"
+          className="text-sm transition-colors"
+          style={{ color: '#8a94a8', textDecoration: 'none' }}
+          onMouseEnter={e => ((e.target as HTMLElement).style.color = '#c9d1e0')}
+          onMouseLeave={e => ((e.target as HTMLElement).style.color = '#8a94a8')}
+        >
+          Demo
+        </Link>
+
+        {/* Voice mode chip */}
+        {chip && (
+          <span
+            className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full"
+            style={{
+              background: chip.bg,
+              color: chip.text,
+              border: `1px solid ${chip.dot}33`,
+            }}
+          >
+            <span
+              className="inline-block w-1.5 h-1.5 rounded-full"
+              style={{ backgroundColor: chip.dot }}
+            />
+            {chip.label}
+          </span>
+        )}
+
+        {/* Off-record badge */}
         {isOffRecordActive && (
           <span
-            className="text-xs px-2 py-0.5"
+            className="text-xs font-medium px-2.5 py-1 rounded-full"
             style={{
-              color: 'var(--color-flag)',
-              border: '1px solid var(--color-flag)',
-              borderRadius: '3px',
+              color: '#f87171',
+              background: 'rgba(239,68,68,0.10)',
+              border: '1px solid rgba(239,68,68,0.25)',
             }}
           >
             off the record
           </span>
         )}
 
+        {/* Elapsed timer */}
         {isSharing && (
           <div className="flex items-center gap-2">
             <span
               className="live-dot inline-block w-2 h-2 rounded-full"
-              style={{ backgroundColor: 'var(--color-signal)' }}
+              style={{ backgroundColor: '#ef4444' }}
             />
             <span
               className="text-sm tabular-nums"
-              style={{ color: 'var(--color-graphite)' }}
+              style={{ color: '#8a94a8', fontVariantNumeric: 'tabular-nums' }}
             >
               {formatElapsed(elapsed)}
             </span>
-            {voiceLabel && (
-              <span
-                className="text-xs"
-                style={{ color: 'var(--color-graphite)' }}
-              >
-                · {voiceLabel}
-              </span>
-            )}
           </div>
         )}
       </div>

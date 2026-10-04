@@ -7,6 +7,7 @@ import type { MaskRegion } from '@/lib/types'
 interface Props {
   videoRef: React.RefObject<HTMLVideoElement | null>
   isSharing: boolean
+  isOffRecord?: boolean
   maskRegions: MaskRegion[]
   onMaskRegionsChange: (regions: MaskRegion[]) => void
 }
@@ -25,6 +26,7 @@ function normalize(rect: MaskRegion): MaskRegion {
 export function ScreenPreview({
   videoRef,
   isSharing,
+  isOffRecord = false,
   maskRegions,
   onMaskRegionsChange,
 }: Props) {
@@ -93,6 +95,7 @@ export function ScreenPreview({
   return (
     <div className="relative w-full h-full overflow-hidden flex flex-col">
       <div className="relative flex-1 overflow-hidden">
+        {/* Video element — hidden until sharing starts */}
         <video
           ref={videoRef}
           muted
@@ -100,20 +103,27 @@ export function ScreenPreview({
           className="w-full h-full object-contain"
           style={{
             display: isSharing ? 'block' : 'none',
-            backgroundColor: 'var(--color-panel)',
+            backgroundColor: '#0d0d0d',
+            borderRadius: '8px',
+            boxShadow: '0 0 0 1px #3d7eff40',
           }}
         />
 
+        {/* Interaction / mask overlay — sits above video while sharing */}
         {isSharing && (
           <div
             ref={overlayRef}
             className="absolute inset-0"
-            style={{ cursor: drawingMode ? 'crosshair' : 'default' }}
+            style={{
+              cursor: drawingMode ? 'crosshair' : 'default',
+              borderRadius: '8px',
+            }}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
           >
+            {/* Committed + live-draw mask regions */}
             {allRegions.map((region, idx) => (
               <div
                 key={idx}
@@ -123,39 +133,77 @@ export function ScreenPreview({
                   top: `${region.y * 100}%`,
                   width: `${region.width * 100}%`,
                   height: `${region.height * 100}%`,
-                  backgroundColor: 'rgba(26, 26, 26, 0.75)',
-                  border: '1px solid var(--color-graphite)',
+                  backgroundColor: 'rgba(13, 13, 13, 0.82)',
+                  border: '1px solid rgba(61, 126, 255, 0.25)',
+                  borderRadius: '2px',
                 }}
               />
             ))}
           </div>
         )}
 
+        {/* Off-the-record amber tint overlay */}
+        {isSharing && isOffRecord && (
+          <div
+            className="absolute inset-0 flex items-center justify-center pointer-events-none"
+            style={{
+              backgroundColor: 'rgba(180, 100, 0, 0.18)',
+              borderRadius: '8px',
+            }}
+          >
+            <span
+              style={{
+                fontSize: '11px',
+                fontWeight: 500,
+                letterSpacing: '0.06em',
+                textTransform: 'uppercase',
+                color: 'rgba(251, 191, 36, 0.85)',
+                backgroundColor: 'rgba(0, 0, 0, 0.45)',
+                padding: '3px 10px',
+                borderRadius: '4px',
+                border: '1px solid rgba(251, 191, 36, 0.25)',
+              }}
+            >
+              Off the record
+            </span>
+          </div>
+        )}
+
+        {/* Empty / placeholder state */}
         {!isSharing && (
           <div
-            className="absolute inset-0 flex flex-col items-center justify-center gap-4"
-            style={{ backgroundColor: 'var(--color-panel)' }}
+            className="absolute inset-0 flex flex-col items-center justify-center"
+            style={{
+              backgroundColor: '#111214',
+              borderRadius: '8px',
+              border: '1px solid rgba(255, 255, 255, 0.06)',
+            }}
           >
             <p
               className="text-sm text-center"
-              style={{ color: 'var(--color-graphite)', maxWidth: '28ch' }}
+              style={{
+                color: 'rgba(255, 255, 255, 0.28)',
+                maxWidth: '24ch',
+                lineHeight: 1.5,
+              }}
             >
-              Share a window to begin capturing events.
+              Share your screen to begin
             </p>
           </div>
         )}
       </div>
 
+      {/* Mask-region toolbar — only shown while sharing */}
       {isSharing && (
-        <div className="shrink-0 px-4 py-2 flex items-center gap-3">
+        <div className="shrink-0 px-3 py-2 flex items-center gap-2">
           <button
             onClick={() => setDrawingMode((prev) => !prev)}
-            className="px-3 py-1 text-xs"
+            className="px-3 py-1 text-xs transition-colors"
             style={{
-              border: '1px solid var(--color-rule)',
+              border: `1px solid ${drawingMode ? 'rgba(61, 126, 255, 0.5)' : 'rgba(255, 255, 255, 0.1)'}`,
               borderRadius: '4px',
-              color: 'var(--color-graphite)',
-              backgroundColor: drawingMode ? 'var(--color-panel)' : 'transparent',
+              color: drawingMode ? 'rgba(61, 126, 255, 0.9)' : 'rgba(255, 255, 255, 0.45)',
+              backgroundColor: drawingMode ? 'rgba(61, 126, 255, 0.08)' : 'transparent',
             }}
           >
             {drawingMode ? 'Done masking' : 'Mask regions'}
@@ -163,11 +211,12 @@ export function ScreenPreview({
           {maskRegions.length > 0 && (
             <button
               onClick={() => onMaskRegionsChange([])}
-              className="px-3 py-1 text-xs"
+              className="px-3 py-1 text-xs transition-colors"
               style={{
-                border: '1px solid var(--color-rule)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
                 borderRadius: '4px',
-                color: 'var(--color-graphite)',
+                color: 'rgba(255, 255, 255, 0.35)',
+                backgroundColor: 'transparent',
               }}
             >
               Clear masks
