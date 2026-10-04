@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -27,6 +28,8 @@ from app.services.image_redactor import (
     redaction_queue,
 )
 
+logger = logging.getLogger(__name__)
+
 DATA_DIR = Path("api/data/sessions")
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -38,7 +41,10 @@ TUTOR_DATA_DIR.mkdir(parents=True, exist_ok=True)
 async def lifespan(app: FastAPI):
     worker_task: asyncio.Task | None = None
     if image_redaction_available():
-        check_tesseract_or_raise()
+        try:
+            check_tesseract_or_raise()
+        except RuntimeError as exc:
+            logger.warning("%s — image OCR redaction disabled; mask regions still applied.", exc)
         worker_task = asyncio.create_task(
             redaction_queue.start_worker(ImageRedactor())
         )
