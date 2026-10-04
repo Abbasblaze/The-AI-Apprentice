@@ -7,6 +7,7 @@ import type { ErpAction, Invoice, InvoiceStatus } from '@/lib/erp/types'
 interface Props {
   invoice: Invoice
   dispatch: (action: ErpAction) => void
+  pendingAction?: string | null
 }
 
 const STATUS_LABEL: Record<InvoiceStatus, string> = {
@@ -34,7 +35,7 @@ function fmtDate(iso: string): string {
   return `${d}.${m}.${y}`
 }
 
-export function InvoiceDetail({ invoice, dispatch }: Props) {
+export function InvoiceDetail({ invoice, dispatch, pendingAction }: Props) {
   const [assetDraft, setAssetDraft] = useState(invoice.asset_number)
   const [noteDraft, setNoteDraft] = useState(invoice.internal_note)
   const { status } = invoice
@@ -77,6 +78,7 @@ export function InvoiceDetail({ invoice, dispatch }: Props) {
                 value: e.target.value as 'opex 4711' | 'capex 0400',
               })
             }
+            disabled={pendingAction === 'CHANGE_COST_CENTER'}
             style={inputStyle}
           >
             <option value="opex 4711">opex 4711</option>
@@ -121,16 +123,19 @@ export function InvoiceDetail({ invoice, dispatch }: Props) {
         {status === 'open' && (
           <>
             <ActionBtn
-              label="Place on Hold"
+              label={pendingAction === 'HOLD' ? 'Checking…' : 'Place on Hold'}
+              disabled={pendingAction !== null}
               onClick={() => dispatch({ type: 'HOLD', invoice_id: invoice.id })}
             />
             <ActionBtn
-              label="Send for Approval"
+              label={pendingAction === 'SEND_FOR_APPROVAL' ? 'Checking…' : 'Send for Approval'}
+              disabled={pendingAction !== null}
               onClick={() => dispatch({ type: 'SEND_FOR_APPROVAL', invoice_id: invoice.id })}
             />
             <ActionBtn
-              label="Post"
+              label={pendingAction === 'POST' ? 'Checking…' : 'Post'}
               primary
+              disabled={pendingAction !== null}
               onClick={() => dispatch({ type: 'POST', invoice_id: invoice.id })}
             />
           </>
@@ -138,20 +143,23 @@ export function InvoiceDetail({ invoice, dispatch }: Props) {
         {status === 'held' && (
           <>
             <ActionBtn
-              label="Release Hold"
+              label={pendingAction === 'RELEASE_HOLD' ? 'Checking…' : 'Release Hold'}
+              disabled={pendingAction !== null}
               onClick={() => dispatch({ type: 'RELEASE_HOLD', invoice_id: invoice.id })}
             />
             <ActionBtn
-              label="Post"
+              label={pendingAction === 'POST' ? 'Checking…' : 'Post'}
               primary
+              disabled={pendingAction !== null}
               onClick={() => dispatch({ type: 'POST', invoice_id: invoice.id })}
             />
           </>
         )}
         {status === 'awaiting-approval' && (
           <ActionBtn
-            label="Post"
+            label={pendingAction === 'POST' ? 'Checking…' : 'Post'}
             primary
+            disabled={pendingAction !== null}
             onClick={() => dispatch({ type: 'POST', invoice_id: invoice.id })}
           />
         )}
@@ -177,14 +185,17 @@ function ActionBtn({
   label,
   onClick,
   primary,
+  disabled,
 }: {
   label: string
   onClick: () => void
   primary?: boolean
+  disabled?: boolean
 }) {
   return (
     <button
       onClick={onClick}
+      disabled={disabled}
       style={{
         padding: '6px 14px',
         fontSize: '13px',
@@ -193,7 +204,8 @@ function ActionBtn({
         border: primary ? 'none' : '1px solid #C0C0BE',
         background: primary ? '#2563EB' : '#FFFFFF',
         color: primary ? '#FFFFFF' : '#1A1A1A',
-        cursor: 'pointer',
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        opacity: disabled ? 0.6 : 1,
       }}
     >
       {label}

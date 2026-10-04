@@ -1,5 +1,6 @@
 import type {
   AppEvent,
+  CheckVerdict,
   DebriefAnswerResponse,
   DebriefReplyResponse,
   DebriefStartResponse,
@@ -7,10 +8,12 @@ import type {
   DirectorDecideResponse,
   FrameRequest,
   FrameResponse,
+  MasterySummary,
   SessionRecord,
   SessionSummary,
   TranscriptEntry,
   TranscriptResponse,
+  TutorSession,
   WorkMap,
 } from './types'
 
@@ -33,7 +36,7 @@ export async function postFrame(req: FrameRequest): Promise<FrameResponse> {
   })
 }
 
-export async function fetchSignedUrl(role: 'interviewer' | 'debrief' = 'interviewer'): Promise<string> {
+export async function fetchSignedUrl(role: 'interviewer' | 'debrief' | 'tutor' = 'interviewer'): Promise<string> {
   const data = await apiFetch<{ signed_url: string }>(`/api/voice/signed-url?role=${role}`)
   return data.signed_url
 }
@@ -110,4 +113,69 @@ export async function replyDebrief(sessionId: string, reply: string): Promise<De
 
 export async function fetchMap(sessionId: string): Promise<WorkMap> {
   return apiFetch<WorkMap>(`/api/sessions/${sessionId}/map`)
+}
+
+export interface InvoiceStateIn {
+  supplier: string
+  country: string
+  amount: number
+  cost_center: string
+  asset_number: string
+  status: string
+  internal_note: string
+}
+
+export interface ErpActionCheck {
+  action_type: string
+  action_value: string | null
+}
+
+export async function createTutorSession(workMapSessionId: string): Promise<TutorSession> {
+  return apiFetch<TutorSession>('/api/tutor/sessions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ work_map_session_id: workMapSessionId }),
+  })
+}
+
+export async function getTutorSession(id: string): Promise<TutorSession> {
+  return apiFetch<TutorSession>(`/api/tutor/sessions/${id}`)
+}
+
+export async function endTutorSession(id: string): Promise<void> {
+  await apiFetch<unknown>(`/api/tutor/sessions/${id}/end`, { method: 'POST' })
+}
+
+export async function checkAction(
+  tutorId: string,
+  action: ErpActionCheck,
+  invoice: InvoiceStateIn,
+): Promise<CheckVerdict> {
+  return apiFetch<CheckVerdict>(`/api/tutor/sessions/${tutorId}/check`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...action, invoice }),
+  })
+}
+
+export async function getTutorSummary(id: string): Promise<MasterySummary> {
+  return apiFetch<MasterySummary>(`/api/tutor/sessions/${id}/summary`, { method: 'POST' })
+}
+
+export async function listTutorSessions(): Promise<TutorSession[]> {
+  return apiFetch<TutorSession[]>('/api/tutor/sessions')
+}
+
+export async function listMapsForTutor(): Promise<WorkMap[]> {
+  const sessions = await apiFetch<{ sessions: SessionSummary[] }>('/api/sessions')
+  const maps = await Promise.all(
+    sessions.sessions
+      .filter((s) => s.has_map)
+      .map((s) =>
+        apiFetch<WorkMap>(`/api/sessions/${s.session_id}/map`).catch(() => null),
+      ),
+  )
+  return maps.filter(
+    (m): m is WorkMap => m !== null && (m.expert_confirmed || m.demo_ready),
+  )
 }

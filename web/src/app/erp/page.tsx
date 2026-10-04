@@ -3,16 +3,46 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 
+import { checkAction } from '@/lib/apiClient'
 import { InvoiceDetail } from '@/components/erp/InvoiceDetail'
 import { InvoiceInbox } from '@/components/erp/InvoiceInbox'
-import { broadcastErpEvents } from '@/lib/erp/broadcast'
+import { broadcastErpEvents, broadcastTutorBlock } from '@/lib/erp/broadcast'
 import { defaultCommitGuard } from '@/lib/erp/commitGuard'
 import { erpReducer, toErpEvents } from '@/lib/erp/reducer'
 import { SEEDS } from '@/lib/erp/seeds'
 import type { CommitGuard } from '@/lib/erp/commitGuard'
-import type { ErpAction, ErpState, SeedSet } from '@/lib/erp/types'
+import type { ErpAction, ErpState, Invoice, SeedSet } from '@/lib/erp/types'
+import type { InvoiceStateIn } from '@/lib/apiClient'
 
 const LS_KEY = 'ai-apprentice-erp-state'
+
+const CHECKED_ACTION_TYPES = new Set([
+  'CHANGE_COST_CENTER',
+  'SET_ASSET_NUMBER',
+  'HOLD',
+  'RELEASE_HOLD',
+  'SEND_FOR_APPROVAL',
+  'POST',
+])
+
+function invoiceToStateIn(invoice: Invoice): InvoiceStateIn {
+  return {
+    supplier: invoice.supplier,
+    country: invoice.country,
+    amount: invoice.amount,
+    cost_center: invoice.cost_center,
+    asset_number: invoice.asset_number,
+    status: invoice.status,
+    internal_note: invoice.internal_note,
+  }
+}
+
+function actionToCheck(action: ErpAction): { action_type: string; action_value: string | null } {
+  const type = action.type.toLowerCase()
+  let value: string | null = null
+  if ('value' in action) value = String(action.value)
+  return { action_type: type, action_value: value }
+}
 
 function loadState(seedSet: SeedSet): ErpState {
   if (typeof window === 'undefined') return SEEDS[seedSet]
@@ -33,8 +63,10 @@ interface ErpAppProps {
 function ErpApp({ commitGuard = defaultCommitGuard }: ErpAppProps) {
   const searchParams = useSearchParams()
   const seedSet = (searchParams.get('set') ?? 'expert') as SeedSet
+  const tutorId = searchParams.get('tutor')
 
   const [state, setState] = useState<ErpState>(() => loadState(seedSet))
+  const [pendingAction, setPendingAction] = useState<string | null>(null)
   const stateRef = useRef<ErpState>(state)
 
   useEffect(() => {
@@ -47,7 +79,7 @@ function ErpApp({ commitGuard = defaultCommitGuard }: ErpAppProps) {
     } catch { /* ignore */ }
   }, [state, seedSet])
 
-  const dispatch = useCallback(
+  const applyAction = useCallback(
     (action: ErpAction) => {
       const current = stateRef.current
       const invoice =
@@ -68,6 +100,44 @@ function ErpApp({ commitGuard = defaultCommitGuard }: ErpAppProps) {
       }
     },
     [commitGuard],
+  )
+
+  const dispatch = useCallback(
+    (action: ErpAction) => {
+      if (!tutorId || !CHECKED_ACTION_TYPES.has(action.type)) {
+        applyAction(action)
+        return
+      }
+
+      const current = stateRef.current
+      const invoice =
+        'invoice_id' in action
+          ? current.invoices.find((inv) => inv.id === action.invoice_id) ?? null
+          : null
+
+      if (!invoice) {
+        applyAction(action)
+        return
+      }
+
+      setPendingAction(action.type)
+      const { action_type, action_value } = actionToCheck(action)
+
+      checkAction(tutorId, { action_type, action_value }, invoiceToStateIn(invoice))
+        .then((verdict) => {
+          setPendingAction(null)
+          if (verdict.verdict === 'block') {
+            broadcastTutorBlock(verdict)
+          } else {
+            applyAction(action)
+          }
+        })
+        .catch(() => {
+          setPendingAction(null)
+          applyAction(action)
+        })
+    },
+    [tutorId, applyAction],
   )
 
   const selectedInvoice =
@@ -123,7 +193,12 @@ function ErpApp({ commitGuard = defaultCommitGuard }: ErpAppProps) {
             <InvoiceInbox invoices={state.invoices} dispatch={dispatch} />
           </div>
         ) : (
-          <InvoiceDetail key={selectedInvoice.id} invoice={selectedInvoice} dispatch={dispatch} />
+          <InvoiceDetail
+            key={selectedInvoice.id}
+            invoice={selectedInvoice}
+            dispatch={dispatch}
+            pendingAction={pendingAction}
+          />
         )}
       </div>
 

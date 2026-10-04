@@ -249,6 +249,10 @@ class Guardrail(BaseModel):
     quote_t: float
     who_to_ask: Optional[str] = None
     applies_to: Optional[str] = None
+    threshold: Optional[float] = None
+    comparator: Optional[str] = None
+    threshold_field: Optional[str] = None
+    blocked_value: Optional[str] = None
 
 
 class Step(BaseModel):
@@ -281,6 +285,7 @@ class WorkMap(BaseModel):
     confirmed_at: Optional[float] = None
     teachback_rounds: list[TeachbackRound] = []
     version: int = 1
+    demo_ready: bool = False
 
 
 class DebriefPhase(str, Enum):
@@ -297,3 +302,82 @@ class DebriefState(BaseModel):
     teachback_text: Optional[str] = None
     teachback_rounds: list[TeachbackRound] = []
     move_reason: Optional[str] = None
+
+
+class PredictionResult(str, Enum):
+    correct = "correct"
+    partly_correct = "partly_correct"
+    wrong = "wrong"
+
+
+class TutorPrediction(BaseModel):
+    id: str
+    step_id: str
+    question: str
+    answer: str
+    result: PredictionResult
+    t: float
+
+
+class CheckVerdict(BaseModel):
+    verdict: Literal["allow", "block"]
+    guardrail_id: Optional[str] = None
+    step_id: Optional[str] = None
+    explanation: str
+    asks_why: str
+    from_cache: bool = False
+    timeout: bool = False
+
+
+class TutorIntervention(BaseModel):
+    id: str
+    step_id: Optional[str] = None
+    guardrail_id: Optional[str] = None
+    verdict: CheckVerdict
+    answer: str = ""
+    corrected: bool = False
+    t: float
+
+
+class StepMastery(BaseModel):
+    step_id: str
+    step_title: str
+    attempted: bool
+    predicted_correctly: bool
+    blocked: int
+    corrected_after_block: bool
+    hints_used: int
+    mastered: bool
+
+
+class GuardrailMastery(BaseModel):
+    guardrail_id: str
+    rule: str
+    tested: bool
+    passed: bool
+
+
+class MasterySummary(BaseModel):
+    mastered_steps: list[str]
+    practice_next: list[str]
+    step_mastery: list[StepMastery]
+    guardrail_mastery: list[GuardrailMastery]
+    total_predictions: int
+    correct_predictions: int
+    total_interventions: int
+    corrected_interventions: int
+    summary_text: str
+
+
+class TutorSession(BaseModel):
+    id: str
+    work_map_session_id: str
+    started_at: float = Field(default_factory=time.time)
+    ended_at: Optional[float] = None
+    events: list[AppEvent] = []
+    transcript: list[TranscriptEntry] = []
+    interventions: list[TutorIntervention] = []
+    predictions: list[TutorPrediction] = []
+    mastery: Optional[MasterySummary] = None
+    current_step_id: Optional[str] = None
+    verdicts: list[CheckVerdict] = []

@@ -180,6 +180,10 @@ export interface Guardrail {
   quote_t: number
   who_to_ask: string | null
   applies_to: string | null
+  threshold: number | null
+  comparator: string | null
+  threshold_field: string | null
+  blocked_value: string | null
 }
 
 export interface Step {
@@ -212,6 +216,7 @@ export interface WorkMap {
   confirmed_at: number | null
   teachback_rounds: TeachbackRound[]
   version: number
+  demo_ready: boolean
 }
 
 export type DebriefPhase = 'gathering' | 'teachback' | 'confirmed'
@@ -234,4 +239,79 @@ export interface DebriefReplyResponse {
   partial_teachback: string | null
   confirmed: boolean
   map: WorkMap
+}
+
+export type PredictionResult = 'correct' | 'partly_correct' | 'wrong'
+
+export interface CheckVerdict {
+  verdict: 'allow' | 'block'
+  guardrail_id: string | null
+  step_id: string | null
+  explanation: string
+  asks_why: string
+  from_cache: boolean
+  timeout: boolean
+}
+
+export interface TutorPrediction {
+  id: string
+  step_id: string
+  question: string
+  answer: string
+  result: PredictionResult
+  t: number
+}
+
+export interface TutorIntervention {
+  id: string
+  step_id: string | null
+  guardrail_id: string | null
+  verdict: CheckVerdict
+  answer: string
+  corrected: boolean
+  t: number
+}
+
+export interface StepMastery {
+  step_id: string
+  step_title: string
+  attempted: boolean
+  predicted_correctly: boolean
+  blocked: number
+  corrected_after_block: boolean
+  hints_used: number
+  mastered: boolean
+}
+
+export interface GuardrailMastery {
+  guardrail_id: string
+  rule: string
+  tested: boolean
+  passed: boolean
+}
+
+export interface MasterySummary {
+  mastered_steps: string[]
+  practice_next: string[]
+  step_mastery: StepMastery[]
+  guardrail_mastery: GuardrailMastery[]
+  total_predictions: number
+  correct_predictions: number
+  total_interventions: number
+  corrected_interventions: number
+  summary_text: string
+}
+
+export interface TutorSession {
+  id: string
+  work_map_session_id: string
+  started_at: number
+  ended_at: number | null
+  events: AppEvent[]
+  transcript: TranscriptEntry[]
+  interventions: TutorIntervention[]
+  predictions: TutorPrediction[]
+  mastery: MasterySummary | null
+  current_step_id: string | null
+  verdicts: CheckVerdict[]
 }

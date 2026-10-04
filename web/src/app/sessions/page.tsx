@@ -3,8 +3,8 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 
-import { fetchSessions } from '@/lib/apiClient'
-import type { SessionSummary } from '@/lib/types'
+import { fetchSessions, listTutorSessions } from '@/lib/apiClient'
+import type { SessionSummary, TutorSession } from '@/lib/types'
 
 function formatDate(unixSec: number): string {
   return new Date(unixSec * 1000).toLocaleString('en-GB', {
@@ -27,7 +27,9 @@ function formatDuration(start: number, end: number | null): string {
 
 export default function SessionsPage() {
   const [sessions, setSessions] = useState<SessionSummary[] | null>(null)
+  const [tutorSessions, setTutorSessions] = useState<TutorSession[] | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [expandedTutorId, setExpandedTutorId] = useState<string | null>(null)
 
   useEffect(() => {
     fetchSessions()
@@ -35,6 +37,9 @@ export default function SessionsPage() {
       .catch((err: unknown) =>
         setError(err instanceof Error ? err.message : 'Failed to load sessions'),
       )
+    listTutorSessions()
+      .then(setTutorSessions)
+      .catch(() => setTutorSessions([]))
   }, [])
 
   return (
@@ -153,6 +158,88 @@ export default function SessionsPage() {
                     )}
                   </td>
                 </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+
+        <h2
+          className="text-sm font-medium mb-4 mt-8"
+          style={{ color: 'var(--color-graphite)', fontFamily: 'var(--font-heading)' }}
+        >
+          Tutor Sessions
+        </h2>
+
+        {tutorSessions !== null && tutorSessions.length === 0 && (
+          <p className="text-sm" style={{ color: 'var(--color-graphite)' }}>
+            No tutor sessions yet.
+          </p>
+        )}
+
+        {tutorSessions !== null && tutorSessions.length > 0 && (
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid var(--color-rule)' }}>
+                {['Date', 'Map Session', 'Interventions', 'Mastery'].map((h) => (
+                  <th
+                    key={h}
+                    style={{
+                      padding: '6px 12px',
+                      textAlign: 'left',
+                      fontWeight: 600,
+                      color: 'var(--color-graphite)',
+                      fontSize: '12px',
+                    }}
+                  >
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {tutorSessions.map((ts) => (
+                <>
+                  <tr
+                    key={ts.id}
+                    style={{ borderBottom: '1px solid var(--color-rule)', cursor: 'pointer' }}
+                    onClick={() =>
+                      setExpandedTutorId((prev) => (prev === ts.id ? null : ts.id))
+                    }
+                  >
+                    <td style={cell}>{formatDate(ts.started_at)}</td>
+                    <td style={{ ...cell, fontFamily: 'monospace', fontSize: '12px' }}>
+                      {ts.work_map_session_id.slice(0, 12)}…
+                    </td>
+                    <td style={{ ...cell, fontVariantNumeric: 'tabular-nums' }}>
+                      {ts.interventions.length}
+                    </td>
+                    <td style={cell}>
+                      {ts.mastery ? (
+                        <span>
+                          {ts.mastery.mastered_steps.length} / {ts.mastery.step_mastery.length} mastered
+                        </span>
+                      ) : (
+                        <span style={{ color: 'var(--color-graphite)' }}>
+                          {ts.ended_at ? 'No summary' : 'In progress'}
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                  {expandedTutorId === ts.id && ts.mastery && (
+                    <tr key={`${ts.id}-detail`} style={{ borderBottom: '1px solid var(--color-rule)' }}>
+                      <td colSpan={4} style={{ padding: '12px 20px', background: 'var(--color-panel)' }}>
+                        <div style={{ fontSize: '13px', color: 'var(--color-ink)', marginBottom: '8px' }}>
+                          {ts.mastery.summary_text}
+                        </div>
+                        <div style={{ fontSize: '12px', color: 'var(--color-graphite)', fontVariantNumeric: 'tabular-nums' }}>
+                          {ts.mastery.correct_predictions} of {ts.mastery.total_predictions} predictions correct
+                          {' · '}
+                          {ts.mastery.corrected_interventions} corrected after block
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </>
               ))}
             </tbody>
           </table>

@@ -18,6 +18,10 @@ async def get_signed_url(role: str = "interviewer") -> SignedUrlResponse:
         agent_id = config.elevenlabs_debrief_agent_id
         if not agent_id:
             raise HTTPException(status_code=503, detail="ElevenLabs debrief agent not configured")
+    elif role == "tutor":
+        agent_id = config.elevenlabs_tutor_agent_id
+        if not agent_id:
+            raise HTTPException(status_code=503, detail="ElevenLabs tutor agent not configured")
     else:
         agent_id = config.elevenlabs_agent_id
         if not agent_id:
