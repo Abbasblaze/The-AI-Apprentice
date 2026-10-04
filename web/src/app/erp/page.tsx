@@ -53,37 +53,28 @@ function ErpApp({ commitGuard = defaultCommitGuard }: ErpAppProps) {
   const seedSet = (searchParams.get('set') ?? 'expert') as SeedSet
   const tutorId = searchParams.get('tutor')
 
-  const [state, setState] = useState<ErpState>(
-    () => JSON.parse(JSON.stringify(SEEDS[seedSet])) as ErpState,
-  )
+  const [state, setState] = useState<ErpState>(() => {
+    try {
+      const raw = localStorage.getItem(LS_KEY)
+      if (raw) {
+        const parsed = JSON.parse(raw) as { seedSet: SeedSet; state: ErpState }
+        if (parsed.seedSet === seedSet) return parsed.state
+      }
+    } catch { /* ignore */ }
+    return JSON.parse(JSON.stringify(SEEDS[seedSet])) as ErpState
+  })
   const [pendingAction, setPendingAction] = useState<string | null>(null)
   const stateRef = useRef<ErpState>(state)
-  const didLoadRef = useRef(false)
 
   useEffect(() => {
     stateRef.current = state
   })
 
   useEffect(() => {
-    if (!didLoadRef.current) return
     try {
       localStorage.setItem(LS_KEY, JSON.stringify({ seedSet, state }))
     } catch { /* ignore */ }
   }, [state, seedSet])
-
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(LS_KEY)
-      if (raw) {
-        const parsed = JSON.parse(raw) as { seedSet: SeedSet; state: ErpState }
-        if (parsed.seedSet === seedSet) {
-          setState(parsed.state)
-          stateRef.current = parsed.state
-        }
-      }
-    } catch { /* ignore */ }
-    didLoadRef.current = true
-  }, [seedSet])
 
   const applyAction = useCallback(
     (action: ErpAction) => {

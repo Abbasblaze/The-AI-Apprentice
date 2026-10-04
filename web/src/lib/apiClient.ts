@@ -1,4 +1,5 @@
 import type {
+  ApiStatus,
   AppEvent,
   CheckVerdict,
   DebriefAnswerResponse,
@@ -201,6 +202,19 @@ export async function fetchMaskRegions(sessionId: string): Promise<MaskRegion[]>
     `/api/sessions/${sessionId}/masks`,
   )
   return data.mask_regions
+}
+
+export async function exportMap(sessionId: string, format: 'markdown' | 'json'): Promise<string> {
+  const res = await fetch(`${API_BASE}/api/sessions/${sessionId}/map/export?format=${format}`)
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }))
+    throw new Error((body as { detail?: string }).detail ?? `HTTP ${res.status}`)
+  }
+  return res.text()
+}
+
+export async function fetchApiStatus(): Promise<ApiStatus> {
+  return apiFetch<ApiStatus>('/api/status')
 }
 
 export async function postOffRecordPeriod(

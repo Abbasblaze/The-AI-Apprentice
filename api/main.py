@@ -14,9 +14,11 @@ from app.routers import (
     debrief,
     director,
     erp_events,
+    export,
     frames,
     privacy,
     sessions,
+    status,
     transcript,
     tutor,
     voice,
@@ -79,3 +81,5 @@ app.include_router(director.router, prefix="/api")
 app.include_router(debrief.router, prefix="/api")
 app.include_router(tutor.router, prefix="/api")
 app.include_router(privacy.router, prefix="/api")
+app.include_router(export.router, prefix="/api")
+app.include_router(status.router, prefix="/api")

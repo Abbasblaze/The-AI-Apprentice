@@ -336,6 +336,24 @@ export interface MasterySummary {
   summary_text: string
 }
 
+export interface ApiStatus {
+  api: string
+  models: {
+    vision: string
+    director: string
+    map: string
+    tutor: string
+  }
+  agents: {
+    interview: boolean
+    debrief: boolean
+    tutor: boolean
+  }
+  tesseract: boolean
+  confirmed_map: boolean
+  confirmed_map_session_id: string | null
+}
+
 export interface TutorSession {
   id: string
   work_map_session_id: string

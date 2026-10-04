@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
-import { fetchMap, snapshotUrl } from '@/lib/apiClient'
+import { exportMap, fetchMap, snapshotUrl } from '@/lib/apiClient'
 import type { Guardrail, Step, WorkMap } from '@/lib/types'
 
 function fmtT(t: number): string {
@@ -210,11 +210,206 @@ function StepDetail({
   )
 }
 
+function ExportPanel({
+  sessionId,
+  onClose,
+}: {
+  sessionId: string
+  onClose: () => void
+}) {
+  const [format, setFormat] = useState<'markdown' | 'json'>('markdown')
+  const [preview, setPreview] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+
+  const fetching = preview === null && err === null
+
+  useEffect(() => {
+    let cancelled = false
+    exportMap(sessionId, format)
+      .then((text) => { if (!cancelled) setPreview(text) })
+      .catch((e: unknown) => { if (!cancelled) setErr(e instanceof Error ? e.message : 'Export failed') })
+    return () => { cancelled = true }
+  }, [sessionId, format])
+
+  function handleFormatChange(f: 'markdown' | 'json') {
+    setPreview(null)
+    setErr(null)
+    setFormat(f)
+  }
+
+  function handleCopy() {
+    if (!preview) return
+    navigator.clipboard.writeText(preview).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    })
+  }
+
+  function handleDownload() {
+    if (!preview) return
+    const ext = format === 'json' ? 'json' : 'md'
+    const mime = format === 'json' ? 'application/json' : 'text/markdown'
+    const blob = new Blob([preview], { type: mime })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `agent-instructions.${ext}`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0,0,0,0.45)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 100,
+      }}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div
+        style={{
+          background: 'var(--color-panel)',
+          border: '1px solid var(--color-rule)',
+          borderRadius: '6px',
+          width: 'min(760px, 95vw)',
+          maxHeight: '85vh',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+        }}
+      >
+        <div
+          style={{
+            padding: '14px 18px',
+            borderBottom: '1px solid var(--color-rule)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
+          <div>
+            <div style={{ fontWeight: 600, fontSize: '14px', color: 'var(--color-ink)' }}>
+              Instructions for an agent
+            </div>
+            <div style={{ fontSize: '12px', color: 'var(--color-graphite)', marginTop: '2px' }}>
+              Every step, hard stop, and gap — ready to load into an agent.
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: '18px',
+              color: 'var(--color-graphite)',
+              lineHeight: 1,
+            }}
+          >
+            ×
+          </button>
+        </div>
+
+        <div
+          style={{
+            padding: '10px 18px',
+            borderBottom: '1px solid var(--color-rule)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+          }}
+        >
+          {(['markdown', 'json'] as const).map((f) => (
+            <button
+              key={f}
+              onClick={() => handleFormatChange(f)}
+              style={{
+                padding: '4px 10px',
+                fontSize: '12px',
+                borderRadius: '4px',
+                border: '1px solid var(--color-rule)',
+                background: format === f ? 'var(--color-ink)' : 'none',
+                color: format === f ? 'var(--color-paper)' : 'var(--color-ink)',
+                cursor: 'pointer',
+              }}
+            >
+              {f === 'markdown' ? 'Markdown' : 'JSON'}
+            </button>
+          ))}
+          <div style={{ flex: 1 }} />
+          <button
+            onClick={handleCopy}
+            disabled={!preview}
+            style={{
+              padding: '4px 12px',
+              fontSize: '12px',
+              borderRadius: '4px',
+              border: '1px solid var(--color-rule)',
+              background: 'none',
+              cursor: preview ? 'pointer' : 'default',
+              color: 'var(--color-ink)',
+              opacity: preview ? 1 : 0.5,
+            }}
+          >
+            {copied ? 'Copied' : 'Copy'}
+          </button>
+          <button
+            onClick={handleDownload}
+            disabled={!preview}
+            style={{
+              padding: '4px 12px',
+              fontSize: '12px',
+              borderRadius: '4px',
+              border: '1px solid var(--color-rule)',
+              background: 'none',
+              cursor: preview ? 'pointer' : 'default',
+              color: 'var(--color-ink)',
+              opacity: preview ? 1 : 0.5,
+            }}
+          >
+            Download
+          </button>
+        </div>
+
+        <div style={{ flex: 1, overflow: 'auto', padding: '16px 18px' }}>
+          {fetching && (
+            <div style={{ color: 'var(--color-graphite)', fontSize: '13px' }}>Loading…</div>
+          )}
+          {err && (
+            <div style={{ color: 'var(--color-flag)', fontSize: '13px' }}>{err}</div>
+          )}
+          {preview && !fetching && (
+            <pre
+              style={{
+                fontFamily: 'monospace',
+                fontSize: '12px',
+                color: 'var(--color-ink)',
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
+                margin: 0,
+              }}
+            >
+              {preview}
+            </pre>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function MapPage() {
   const { id } = useParams<{ id: string }>()
   const [workMap, setWorkMap] = useState<WorkMap | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null)
+  const [showExport, setShowExport] = useState(false)
 
   useEffect(() => {
     if (!id) return
@@ -237,6 +432,9 @@ export default function MapPage() {
       className="flex flex-col overflow-hidden"
       style={{ height: '100dvh', backgroundColor: 'var(--color-paper)' }}
     >
+      {showExport && id && (
+        <ExportPanel sessionId={id} onClose={() => setShowExport(false)} />
+      )}
       <header
         style={{ borderBottom: '1px solid var(--color-rule)' }}
         className="flex items-center justify-between px-5 py-3 bg-panel shrink-0"
@@ -250,6 +448,22 @@ export default function MapPage() {
           </Link>
         </h1>
         <div className="flex items-center gap-4">
+          {workMap?.expert_confirmed && (
+            <button
+              onClick={() => setShowExport(true)}
+              style={{
+                fontSize: '13px',
+                padding: '4px 12px',
+                borderRadius: '4px',
+                border: '1px solid var(--color-rule)',
+                background: 'none',
+                cursor: 'pointer',
+                color: 'var(--color-ink)',
+              }}
+            >
+              Export
+            </button>
+          )}
           <Link
             href={`/sessions/${id}/privacy`}
             className="text-sm"

@@ -10,7 +10,7 @@ python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
-# Edit .env and add your OPENAI_API_KEY
+# Edit .env and add OPENAI_API_KEY and ELEVENLABS_* keys
 ```
 
 ### Web
@@ -38,8 +38,30 @@ npm run dev
 
 Open http://localhost:3000
 
-## Lint and typecheck
+## Test
 
+**API tests:**
 ```bash
-cd web && npm run lint && npm run typecheck
+cd api
+source .venv/bin/activate
+pytest
 ```
+
+**Web tests and type checks:**
+```bash
+cd web
+npm run test
+npm run typecheck
+npm run lint
+```
+
+## Demo
+
+Open http://localhost:3000/demo for the step-by-step demo checklist with live status checks.
+
+**Reset demo data** (clears tutor sessions, keeps confirmed maps):
+```bash
+./scripts/reset_demo.sh
+```
+
+See [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md) for the 4-minute demo script.
