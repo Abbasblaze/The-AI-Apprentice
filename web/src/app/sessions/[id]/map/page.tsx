@@ -249,13 +249,22 @@ export default function MapPage() {
             The AI Apprentice
           </Link>
         </h1>
-        <Link
-          href={`/sessions/${id}`}
-          className="text-sm"
-          style={{ color: 'var(--color-signal)', textDecoration: 'none' }}
-        >
-          ← Session
-        </Link>
+        <div className="flex items-center gap-4">
+          <Link
+            href={`/sessions/${id}/privacy`}
+            className="text-sm"
+            style={{ color: 'var(--color-signal)', textDecoration: 'none' }}
+          >
+            Privacy
+          </Link>
+          <Link
+            href={`/sessions/${id}`}
+            className="text-sm"
+            style={{ color: 'var(--color-signal)', textDecoration: 'none' }}
+          >
+            ← Session
+          </Link>
+        </div>
       </header>
 
       {error && (

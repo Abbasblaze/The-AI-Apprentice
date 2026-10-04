@@ -16,6 +16,8 @@ interface UseVoiceSessionOptions {
   startTimeRef: React.RefObject<number>
   onError: (msg: string) => void
   onAnswered: (questionId: string, answerText: string) => void
+  onOffRecordChange: (offRecord: boolean, t: number) => void
+  onForgetThat: () => void
 }
 
 interface UseVoiceSessionResult {
@@ -28,6 +30,8 @@ interface UseVoiceSessionResult {
   stopVoice: () => void
   pushScreenEvents: (events: AppEvent[]) => void
   sendDirectorQuestion: (questionId: string, question: string) => void
+  toggleOffRecord: () => void
+  confirmForget: () => void
 }
 
 export function useVoiceSession({
@@ -35,6 +39,8 @@ export function useVoiceSession({
   startTimeRef,
   onError,
   onAnswered,
+  onOffRecordChange,
+  onForgetThat,
 }: UseVoiceSessionOptions): UseVoiceSessionResult {
   const [isConnected, setIsConnected] = useState(false)
   const [voiceMode, setVoiceMode] = useState<VoiceMode>('idle')
@@ -50,10 +56,20 @@ export function useVoiceSession({
   const isOffRecordRef = useRef(false)
   const isConnectedRef = useRef(false)
   const onAnsweredRef = useRef(onAnswered)
+  const onOffRecordChangeRef = useRef(onOffRecordChange)
+  const onForgetThatRef = useRef(onForgetThat)
 
   useEffect(() => {
     onAnsweredRef.current = onAnswered
   }, [onAnswered])
+
+  useEffect(() => {
+    onOffRecordChangeRef.current = onOffRecordChange
+  }, [onOffRecordChange])
+
+  useEffect(() => {
+    onForgetThatRef.current = onForgetThat
+  }, [onForgetThat])
 
   const elapsed = useCallback(
     () => (Date.now() - startTimeRef.current) / 1000,
@@ -136,11 +152,17 @@ export function useVoiceSession({
           if (lower.includes('off the record')) {
             setIsOffRecord(true)
             isOffRecordRef.current = true
+            onOffRecordChangeRef.current(true, elapsed())
             return
           }
           if (lower.includes('back on the record')) {
             setIsOffRecord(false)
             isOffRecordRef.current = false
+            onOffRecordChangeRef.current(false, elapsed())
+          }
+          if (lower.includes('forget that')) {
+            onForgetThatRef.current()
+            return
           }
 
           setLastUserSpeechMs(Date.now())
@@ -234,6 +256,18 @@ export function useVoiceSession({
     [sendUserMessage],
   )
 
+  const toggleOffRecord = useCallback(() => {
+    const next = !isOffRecordRef.current
+    isOffRecordRef.current = next
+    setIsOffRecord(next)
+    onOffRecordChangeRef.current(next, elapsed())
+  }, [elapsed])
+
+  const confirmForget = useCallback(() => {
+    if (!isConnectedRef.current) return
+    sendUserMessage('[FORGET] Last question and 2 minutes of recording deleted.')
+  }, [sendUserMessage])
+
   return {
     isConnected,
     voiceMode,
@@ -244,5 +278,7 @@ export function useVoiceSession({
     stopVoice,
     pushScreenEvents,
     sendDirectorQuestion,
+    toggleOffRecord,
+    confirmForget,
   }
 }

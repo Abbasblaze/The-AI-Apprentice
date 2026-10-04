@@ -1,3 +1,4 @@
+import shutil
 import time
 from abc import ABC, abstractmethod
 from collections import defaultdict
@@ -7,6 +8,9 @@ from typing import Optional
 from app.schemas import (
     AppEvent,
     DebriefState,
+    ForgetThatRecord,
+    PrivacyData,
+    RedactionEntry,
     SessionData,
     SessionRecord,
     SessionSummary,
@@ -69,6 +73,23 @@ class SessionRepository(ABC):
     @abstractmethod
     def load_map(self, session_id: str) -> Optional[WorkMap]: ...
 
+    @abstractmethod
+    def load_privacy(self, session_id: str) -> PrivacyData: ...
+
+    @abstractmethod
+    def save_privacy(self, session_id: str, data: PrivacyData) -> None: ...
+
+    @abstractmethod
+    def append_redaction_log(self, session_id: str, entries: list[RedactionEntry]) -> None: ...
+
+    @abstractmethod
+    def delete_session(self, session_id: str) -> None: ...
+
+    @abstractmethod
+    def forget_last_qa(
+        self, session_id: str, window_seconds: float = 120.0
+    ) -> ForgetThatRecord: ...
+
 
 class InMemorySessionRepository(SessionRepository):
     def __init__(self) -> None:
@@ -81,6 +102,7 @@ class InMemorySessionRepository(SessionRepository):
         self._end_times: dict[str, float] = {}
         self._debrief_states: dict[str, DebriefState] = {}
         self._maps: dict[str, WorkMap] = {}
+        self._privacy: dict[str, PrivacyData] = {}
 
     def _ensure_start(self, session_id: str) -> None:
         if session_id not in self._start_times:
@@ -168,6 +190,77 @@ class InMemorySessionRepository(SessionRepository):
     def load_map(self, session_id: str) -> Optional[WorkMap]:
         return self._maps.get(session_id)
 
+    def load_privacy(self, session_id: str) -> PrivacyData:
+        return self._privacy.get(session_id, PrivacyData(session_id=session_id))
+
+    def save_privacy(self, session_id: str, data: PrivacyData) -> None:
+        self._privacy[session_id] = data
+
+    def append_redaction_log(self, session_id: str, entries: list[RedactionEntry]) -> None:
+        if not entries:
+            return
+        privacy = self.load_privacy(session_id)
+        privacy.redaction_log.extend(entries)
+        self.save_privacy(session_id, privacy)
+
+    def delete_session(self, session_id: str) -> None:
+        self._events.pop(session_id, None)
+        self._erp_events.pop(session_id, None)
+        self._transcript.pop(session_id, None)
+        self._decisions.pop(session_id, None)
+        self._snapshots.pop(session_id, None)
+        self._start_times.pop(session_id, None)
+        self._end_times.pop(session_id, None)
+        self._debrief_states.pop(session_id, None)
+        self._maps.pop(session_id, None)
+        self._privacy.pop(session_id, None)
+
+    def forget_last_qa(
+        self, session_id: str, window_seconds: float = 120.0
+    ) -> ForgetThatRecord:
+        now = time.time() - self._start_times.get(session_id, time.time())
+        cutoff = now - window_seconds
+
+        decisions = self._decisions[session_id]
+        answered = [d for d in decisions if d.answered]
+        removed_answer_t: Optional[float] = None
+        if answered:
+            last = answered[-1]
+            self._decisions[session_id] = [d for d in decisions if d.id != last.id]
+            removed_answer_t = last.t
+
+        transcript = self._transcript[session_id]
+        if removed_answer_t is not None:
+            kept = [
+                e
+                for e in transcript
+                if not (e.role.value == "user" and e.t >= removed_answer_t - 5.0)
+            ]
+            self._transcript[session_id] = kept
+
+        events = self._events[session_id]
+        kept_events = [e for e in events if e.t < cutoff]
+        events_removed = len(events) - len(kept_events)
+        self._events[session_id] = kept_events
+
+        erp_events = self._erp_events[session_id]
+        kept_erp = [e for e in erp_events if e.t < cutoff]
+        events_removed += len(erp_events) - len(kept_erp)
+        self._erp_events[session_id] = kept_erp
+
+        snapshots = self._snapshots[session_id]
+        kept_snapshots = [s for s in snapshots if s.t < cutoff]
+        snapshots_removed = len(snapshots) - len(kept_snapshots)
+        self._snapshots[session_id] = kept_snapshots
+
+        record = ForgetThatRecord(
+            t=now, events_removed=events_removed, snapshots_removed=snapshots_removed
+        )
+        privacy = self.load_privacy(session_id)
+        privacy.forget_that_records.append(record)
+        self.save_privacy(session_id, privacy)
+        return record
+
 
 class FileSessionRepository(SessionRepository):
     def __init__(self, base_dir: Path) -> None:
@@ -179,6 +272,12 @@ class FileSessionRepository(SessionRepository):
 
     def _map_path(self, session_id: str) -> Path:
         return self.base_dir / session_id / "map.json"
+
+    def _privacy_path(self, session_id: str) -> Path:
+        return self.base_dir / session_id / "privacy.json"
+
+    def _snapshots_dir(self, session_id: str) -> Path:
+        return self.base_dir / session_id / "snapshots"
 
     def _load(self, session_id: str) -> SessionData:
         path = self._session_path(session_id)
@@ -300,3 +399,75 @@ class FileSessionRepository(SessionRepository):
         if not path.exists():
             return None
         return WorkMap.model_validate_json(path.read_text())
+
+    def load_privacy(self, session_id: str) -> PrivacyData:
+        path = self._privacy_path(session_id)
+        if path.exists():
+            return PrivacyData.model_validate_json(path.read_text())
+        return PrivacyData(session_id=session_id)
+
+    def save_privacy(self, session_id: str, data: PrivacyData) -> None:
+        path = self._privacy_path(session_id)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(data.model_dump_json(indent=2))
+
+    def append_redaction_log(self, session_id: str, entries: list[RedactionEntry]) -> None:
+        if not entries:
+            return
+        privacy = self.load_privacy(session_id)
+        privacy.redaction_log.extend(entries)
+        self.save_privacy(session_id, privacy)
+
+    def delete_session(self, session_id: str) -> None:
+        session_dir = self.base_dir / session_id
+        if session_dir.exists():
+            shutil.rmtree(session_dir)
+
+    def forget_last_qa(
+        self, session_id: str, window_seconds: float = 120.0
+    ) -> ForgetThatRecord:
+        data = self._load(session_id)
+        now = time.time() - data.start_time
+        cutoff = now - window_seconds
+
+        answered = [d for d in data.decisions if d.answered]
+        removed_answer_t: Optional[float] = None
+        if answered:
+            last = answered[-1]
+            data.decisions = [d for d in data.decisions if d.id != last.id]
+            removed_answer_t = last.t
+
+        if removed_answer_t is not None:
+            data.transcript = [
+                e
+                for e in data.transcript
+                if not (e.role.value == "user" and e.t >= removed_answer_t - 5.0)
+            ]
+
+        kept_events = [e for e in data.events if e.t < cutoff]
+        events_removed = len(data.events) - len(kept_events)
+        data.events = kept_events
+
+        kept_erp = [e for e in data.erp_events if e.t < cutoff]
+        events_removed += len(data.erp_events) - len(kept_erp)
+        data.erp_events = kept_erp
+
+        removed_snapshots = [s for s in data.snapshots if s.t >= cutoff]
+        data.snapshots = [s for s in data.snapshots if s.t < cutoff]
+        snapshots_dir = self._snapshots_dir(session_id)
+        for snap in removed_snapshots:
+            snap_path = snapshots_dir / snap.filename
+            if snap_path.exists():
+                snap_path.unlink()
+
+        self._save(session_id, data)
+
+        record = ForgetThatRecord(
+            t=now,
+            events_removed=events_removed,
+            snapshots_removed=len(removed_snapshots),
+        )
+        privacy = self.load_privacy(session_id)
+        privacy.forget_that_records.append(record)
+        self.save_privacy(session_id, privacy)
+        return record

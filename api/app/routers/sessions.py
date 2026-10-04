@@ -1,11 +1,13 @@
+import io
 import time
 
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 
 from app.repositories.sessions import SessionRepository
 from app.schemas import (
     EndSessionResponse,
+    MaskRegion,
     SessionEventsResponse,
     SessionListResponse,
     SessionRecord,
@@ -42,12 +44,35 @@ async def get_events(request: Request, session_id: str) -> SessionEventsResponse
     return SessionEventsResponse(session_id=session_id, events=events)
 
 
+def _mask_jpeg_bytes(data: bytes, mask_regions: list[MaskRegion]) -> bytes:
+    from PIL import Image, ImageDraw
+
+    image = Image.open(io.BytesIO(data)).convert("RGB")
+    draw = ImageDraw.Draw(image)
+    width, height = image.size
+    for region in mask_regions:
+        left = int(region.x * width)
+        top = int(region.y * height)
+        right = int((region.x + region.width) * width)
+        bottom = int((region.y + region.height) * height)
+        draw.rectangle([left, top, right, bottom], fill="black")
+    out = io.BytesIO()
+    image.save(out, format="JPEG")
+    return out.getvalue()
+
+
 @router.get("/sessions/{session_id}/snapshots/{t_str}")
-async def get_snapshot(request: Request, session_id: str, t_str: str) -> FileResponse:
+async def get_snapshot(request: Request, session_id: str, t_str: str) -> Response:
     base_dir = request.app.state.snapshot_base_dir
     path = base_dir / session_id / "snapshots" / f"{t_str}.jpg"
     if not path.exists():
         raise HTTPException(status_code=404, detail="Snapshot not found")
+
+    repo: SessionRepository = request.app.state.session_repo
+    mask_regions = repo.load_privacy(session_id).mask_regions
+    if mask_regions:
+        masked = _mask_jpeg_bytes(path.read_bytes(), mask_regions)
+        return Response(content=masked, media_type="image/jpeg")
     return FileResponse(str(path), media_type="image/jpeg")
 
 

@@ -156,6 +156,60 @@ class SnapshotIndex(BaseModel):
     filename: str
 
 
+class RedactionEntry(BaseModel):
+    entity_type: str
+    count: int
+    location: str
+
+
+class OffRecordPeriod(BaseModel):
+    start_t: float
+    end_t: Optional[float] = None
+
+
+class ForgetThatRecord(BaseModel):
+    t: float
+    events_removed: int
+    snapshots_removed: int
+
+
+class MaskRegion(BaseModel):
+    x: float
+    y: float
+    width: float
+    height: float
+
+
+class PrivacyData(BaseModel):
+    session_id: str
+    redaction_log: list[RedactionEntry] = []
+    off_record_periods: list[OffRecordPeriod] = []
+    forget_that_records: list[ForgetThatRecord] = []
+    mask_regions: list[MaskRegion] = []
+
+
+class PrivacySummary(BaseModel):
+    session_id: str
+    total_events: int
+    total_erp_events: int
+    total_transcript_entries: int
+    total_snapshots: int
+    redaction_counts: dict[str, int]
+    redaction_by_location: dict[str, int]
+    off_record_periods: list[OffRecordPeriod]
+    forget_that_records: list[ForgetThatRecord]
+    mask_region_count: int
+
+
+class OffRecordRequest(BaseModel):
+    start_t: float
+    end_t: Optional[float] = None
+
+
+class MaskRegionsRequest(BaseModel):
+    mask_regions: list[MaskRegion]
+
+
 class SessionData(BaseModel):
     session_id: str
     start_time: float = Field(default_factory=time.time)
@@ -166,6 +220,7 @@ class SessionData(BaseModel):
     decisions: list[StoredDecision] = []
     snapshots: list[SnapshotIndex] = []
     debrief_state: Optional[DebriefState] = None
+    privacy: Optional[PrivacyData] = None
 
 
 class SessionSummary(BaseModel):

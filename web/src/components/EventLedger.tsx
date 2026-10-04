@@ -150,6 +150,44 @@ function AnswerRow({ entry }: { entry: Extract<LedgerEntry, { type: 'answer' }> 
   )
 }
 
+function OffRecordGapRow({
+  entry,
+}: {
+  entry: Extract<LedgerEntry, { type: 'off-record-gap' }>
+}) {
+  const range =
+    entry.end_t === null
+      ? `${formatTime(entry.start_t)}–… (ongoing)`
+      : `${formatTime(entry.start_t)}–${formatTime(entry.end_t)}`
+  return (
+    <div
+      className="px-4 py-2 text-xs"
+      style={{
+        color: 'var(--color-graphite)',
+        borderTop: '1px solid var(--color-rule)',
+        borderBottom: '1px solid var(--color-rule)',
+      }}
+    >
+      Off the record · {range}
+    </div>
+  )
+}
+
+function ForgetThatRow({
+  entry,
+}: {
+  entry: Extract<LedgerEntry, { type: 'forget-that' }>
+}) {
+  return (
+    <div
+      className="px-4 py-2 text-xs tabular-nums"
+      style={{ color: 'var(--color-graphite)' }}
+    >
+      Content removed · {entry.events_removed} events, {entry.snapshots_removed} snapshots
+    </div>
+  )
+}
+
 export function EventLedger({ entries }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null)
 
@@ -194,6 +232,10 @@ export function EventLedger({ entries }: Props) {
               if (entry.type === 'event') return <EventRow key={entry.data.id} entry={entry} />
               if (entry.type === 'question')
                 return <QuestionRow key={entry.data.id} entry={entry} />
+              if (entry.type === 'off-record-gap')
+                return <OffRecordGapRow key={entry.id} entry={entry} />
+              if (entry.type === 'forget-that')
+                return <ForgetThatRow key={entry.id} entry={entry} />
               return <AnswerRow key={entry.id} entry={entry} />
             })}
             <div ref={bottomRef} />

@@ -16,6 +16,10 @@ export interface Invoice {
   asset_number: string
   status: InvoiceStatus
   internal_note: string
+  contact_name: string
+  contact_email: string
+  contact_phone: string
+  bank_iban: string
 }
 
 export interface ErpState {

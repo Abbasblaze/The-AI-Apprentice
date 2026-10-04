@@ -98,7 +98,7 @@ export default function SessionsPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--color-rule)' }}>
-                {['Date', 'Duration', 'Events', 'ERP Events', 'Questions', 'Map', 'Debrief'].map((h) => (
+                {['Date', 'Duration', 'Events', 'ERP Events', 'Questions', 'Map', 'Debrief', 'Privacy'].map((h) => (
                   <th
                     key={h}
                     style={{
@@ -156,6 +156,14 @@ export default function SessionsPage() {
                     ) : (
                       <span style={{ color: 'var(--color-graphite)' }}>—</span>
                     )}
+                  </td>
+                  <td style={cell}>
+                    <Link
+                      href={`/sessions/${s.session_id}/privacy`}
+                      style={{ color: 'var(--color-signal)', textDecoration: 'none' }}
+                    >
+                      Privacy
+                    </Link>
                   </td>
                 </tr>
               ))}

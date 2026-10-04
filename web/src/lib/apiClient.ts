@@ -6,9 +6,12 @@ import type {
   DebriefStartResponse,
   DirectorDecideRequest,
   DirectorDecideResponse,
+  ForgetThatRecord,
   FrameRequest,
   FrameResponse,
+  MaskRegion,
   MasterySummary,
+  PrivacySummary,
   SessionRecord,
   SessionSummary,
   TranscriptEntry,
@@ -164,6 +167,52 @@ export async function getTutorSummary(id: string): Promise<MasterySummary> {
 
 export async function listTutorSessions(): Promise<TutorSession[]> {
   return apiFetch<TutorSession[]>('/api/tutor/sessions')
+}
+
+export async function fetchPrivacySummary(sessionId: string): Promise<PrivacySummary> {
+  return apiFetch<PrivacySummary>(`/api/sessions/${sessionId}/privacy`)
+}
+
+export async function deleteSession(sessionId: string): Promise<void> {
+  await apiFetch<{ deleted: boolean }>(`/api/sessions/${sessionId}`, {
+    method: 'DELETE',
+  })
+}
+
+export async function forgetLastQA(sessionId: string): Promise<ForgetThatRecord> {
+  return apiFetch<ForgetThatRecord>(`/api/sessions/${sessionId}/forget`, {
+    method: 'POST',
+  })
+}
+
+export async function saveMaskRegions(
+  sessionId: string,
+  regions: MaskRegion[],
+): Promise<void> {
+  await apiFetch<{ mask_regions: MaskRegion[] }>(`/api/sessions/${sessionId}/masks`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mask_regions: regions }),
+  })
+}
+
+export async function fetchMaskRegions(sessionId: string): Promise<MaskRegion[]> {
+  const data = await apiFetch<{ mask_regions: MaskRegion[] }>(
+    `/api/sessions/${sessionId}/masks`,
+  )
+  return data.mask_regions
+}
+
+export async function postOffRecordPeriod(
+  sessionId: string,
+  start_t: number,
+  end_t: number | null,
+): Promise<void> {
+  await apiFetch<{ saved: boolean }>(`/api/sessions/${sessionId}/off-record`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ start_t, end_t }),
+  })
 }
 
 export async function listMapsForTutor(): Promise<WorkMap[]> {

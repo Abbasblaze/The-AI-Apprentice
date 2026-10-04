@@ -64,6 +64,10 @@ export function InvoiceDetail({ invoice, dispatch, pendingAction }: Props) {
         <div style={{ gridColumn: '1 / -1' }}>
           <Field label="Description" value={invoice.description} />
         </div>
+        <Field label="Contact Name" value={invoice.contact_name || '—'} />
+        <Field label="Contact Email" value={invoice.contact_email || '—'} />
+        <Field label="Contact Phone" value={invoice.contact_phone || '—'} />
+        <Field label="Bank IBAN" value={invoice.bank_iban || '—'} mono />
       </div>
 
       <div style={{ borderTop: '1px solid #D0D0CE', paddingTop: '16px', marginBottom: '20px' }}>

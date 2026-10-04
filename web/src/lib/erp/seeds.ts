@@ -13,6 +13,10 @@ const expertInvoices: Invoice[] = [
     asset_number: '',
     status: 'open',
     internal_note: '',
+    contact_name: 'Klaus Fischer',
+    contact_email: 'k.fischer@hartmann-praezision.de',
+    contact_phone: '+49 89 2345678',
+    bank_iban: 'DE89 3704 0044 0532 0130 00',
   },
   {
     id: 'inv-4472',
@@ -26,6 +30,10 @@ const expertInvoices: Invoice[] = [
     asset_number: '',
     status: 'open',
     internal_note: '',
+    contact_name: 'Andrea Meier',
+    contact_email: 'a.meier@meier-logistics.ch',
+    contact_phone: '+41 44 5678901',
+    bank_iban: 'CH93 0076 2011 6238 5295 7',
   },
   {
     id: 'inv-4473',
@@ -39,6 +47,10 @@ const expertInvoices: Invoice[] = [
     asset_number: '',
     status: 'open',
     internal_note: '',
+    contact_name: '',
+    contact_email: '',
+    contact_phone: '',
+    bank_iban: '',
   },
 ]
 
@@ -55,6 +67,10 @@ const newhireInvoices: Invoice[] = [
     asset_number: '',
     status: 'open',
     internal_note: '',
+    contact_name: 'Klaus Fischer',
+    contact_email: 'k.fischer@hartmann-praezision.de',
+    contact_phone: '+49 89 2345678',
+    bank_iban: 'DE89 3704 0044 0532 0130 00',
   },
   {
     id: 'inv-4481',
@@ -68,6 +84,10 @@ const newhireInvoices: Invoice[] = [
     asset_number: '',
     status: 'open',
     internal_note: '',
+    contact_name: '',
+    contact_email: '',
+    contact_phone: '',
+    bank_iban: '',
   },
   {
     id: 'inv-4482',
@@ -81,6 +101,10 @@ const newhireInvoices: Invoice[] = [
     asset_number: '',
     status: 'open',
     internal_note: '',
+    contact_name: 'Jana Novak',
+    contact_email: 'j.novak@brno-industrial.cz',
+    contact_phone: '+420 542 123456',
+    bank_iban: 'CZ65 0800 0000 1920 0014 5399',
   },
 ]
 

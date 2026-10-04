@@ -12,12 +12,20 @@ import { useDirectorLoop } from '@/hooks/useDirectorLoop'
 import { useFrameSampler } from '@/hooks/useFrameSampler'
 import { useScreenCapture } from '@/hooks/useScreenCapture'
 import { useVoiceSession } from '@/hooks/useVoiceSession'
-import { endSession, postErpEvents, postFrame } from '@/lib/apiClient'
+import {
+  endSession,
+  forgetLastQA,
+  postErpEvents,
+  postFrame,
+  postOffRecordPeriod,
+  saveMaskRegions,
+} from '@/lib/apiClient'
 import { ERP_CHANNEL } from '@/lib/erp/broadcast'
 import type { ErpBroadcastMessage } from '@/lib/erp/types'
 import type {
   AppEvent,
   LedgerEntry,
+  MaskRegion,
   QuestionEntry,
   QuestionStats,
   SessionStats,
@@ -27,7 +35,9 @@ const INPUT_COST_PER_TOKEN = 0.05 / 1_000_000
 const OUTPUT_COST_PER_TOKEN = 0.4 / 1_000_000
 
 function entryTime(entry: LedgerEntry): number {
-  return entry.type === 'answer' ? entry.t : entry.data.t
+  if (entry.type === 'answer' || entry.type === 'forget-that') return entry.t
+  if (entry.type === 'off-record-gap') return entry.start_t
+  return entry.data.t
 }
 
 function mergeErpEvents(entries: LedgerEntry[], erpEvents: AppEvent[]): LedgerEntry[] {
@@ -78,6 +88,7 @@ function PageContent() {
   const [apiError, setApiError] = useState<string | null>(null)
   const [lastScreenChangeMs, setLastScreenChangeMs] = useState(0)
   const [lastQuestionAskedMs, setLastQuestionAskedMs] = useState(0)
+  const [maskRegions, setMaskRegions] = useState<MaskRegion[]>([])
 
   const sessionIdRef = useRef<string>('')
   const startTimeRef = useRef<number>(0)
@@ -85,8 +96,55 @@ function PageContent() {
   const eventsRef = useRef<AppEvent[]>([])
   const lastQuestionAskedMsRef = useRef(0)
   const isOffRecordRef = useRef(false)
+  const openGapIdRef = useRef<string | null>(null)
+  const openGapStartRef = useRef<number>(0)
 
   const handleVoiceError = useCallback((msg: string) => setApiError(msg), [])
+
+  const handleOffRecordChange = useCallback((offRecord: boolean, t: number) => {
+    if (offRecord) {
+      const id = crypto.randomUUID()
+      openGapIdRef.current = id
+      openGapStartRef.current = t
+      setEntries((prev) => [
+        ...prev,
+        { type: 'off-record-gap', id, start_t: t, end_t: null },
+      ])
+    } else {
+      const id = openGapIdRef.current
+      const start = openGapStartRef.current
+      openGapIdRef.current = null
+      if (id) {
+        setEntries((prev) =>
+          prev.map((e) =>
+            e.type === 'off-record-gap' && e.id === id ? { ...e, end_t: t } : e,
+          ),
+        )
+      }
+      if (sessionIdRef.current) {
+        postOffRecordPeriod(sessionIdRef.current, start, t).catch(() => {})
+      }
+    }
+  }, [])
+
+  const handleForgetThat = useCallback(() => {
+    const sessionId = sessionIdRef.current
+    if (!sessionId) return
+    forgetLastQA(sessionId)
+      .then((record) => {
+        setEntries((prev) => [
+          ...prev,
+          {
+            type: 'forget-that',
+            id: crypto.randomUUID(),
+            t: record.t,
+            events_removed: record.events_removed,
+            snapshots_removed: record.snapshots_removed,
+          },
+        ])
+      })
+      .catch(() => {})
+  }, [])
 
   const handleAnswered = useCallback((questionId: string, answerText: string) => {
     const t = (Date.now() - startTimeRef.current) / 1000
@@ -114,16 +172,44 @@ function PageContent() {
     stopVoice,
     pushScreenEvents,
     sendDirectorQuestion,
+    toggleOffRecord,
+    confirmForget,
   } = useVoiceSession({
     sessionIdRef,
     startTimeRef,
     onError: handleVoiceError,
     onAnswered: handleAnswered,
+    onOffRecordChange: handleOffRecordChange,
+    onForgetThat: handleForgetThat,
   })
 
   useEffect(() => {
     isOffRecordRef.current = isOffRecord
   })
+
+  useEffect(() => {
+    if (!isSharing) return
+    const handler = (e: KeyboardEvent) => {
+      if (e.altKey && (e.key === 'r' || e.key === 'R')) {
+        e.preventDefault()
+        toggleOffRecord()
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [isSharing, toggleOffRecord])
+
+  const handleMaskRegionsChange = useCallback((regions: MaskRegion[]) => {
+    setMaskRegions(regions)
+    if (sessionIdRef.current) {
+      saveMaskRegions(sessionIdRef.current, regions).catch(() => {})
+    }
+  }, [])
+
+  const handleForgetButton = useCallback(() => {
+    handleForgetThat()
+    confirmForget()
+  }, [handleForgetThat, confirmForget])
 
   useEffect(() => {
     const channel = new BroadcastChannel(ERP_CHANNEL)
@@ -227,6 +313,7 @@ function PageContent() {
     videoRef,
     enabled: isSharing && !isOffRecord,
     onSample: handleSample,
+    maskRegions,
   })
 
   useDirectorLoop({
@@ -255,6 +342,8 @@ function PageContent() {
     setApiError(null)
     setLastScreenChangeMs(0)
     setLastQuestionAskedMs(0)
+    setMaskRegions([])
+    openGapIdRef.current = null
     await startSharing()
     await startVoice()
   }, [startSharing, startVoice])
@@ -300,7 +389,12 @@ function PageContent() {
             className="flex-1 overflow-hidden"
             style={{ border: '1px solid var(--color-rule)', margin: '0' }}
           >
-            <ScreenPreview videoRef={videoRef} isSharing={isSharing} />
+            <ScreenPreview
+              videoRef={videoRef}
+              isSharing={isSharing}
+              maskRegions={maskRegions}
+              onMaskRegionsChange={handleMaskRegionsChange}
+            />
           </div>
 
           <div className="shrink-0 px-4 py-2 flex items-center gap-4 min-h-[40px]">
@@ -316,17 +410,43 @@ function PageContent() {
                 Start sharing
               </button>
             ) : (
-              <button
-                onClick={handleStop}
-                className="px-3 py-1.5 text-sm font-medium"
-                style={{
-                  border: '1px solid var(--color-rule)',
-                  borderRadius: '4px',
-                  color: 'var(--color-graphite)',
-                }}
-              >
-                Stop sharing
-              </button>
+              <>
+                <button
+                  onClick={handleStop}
+                  className="px-3 py-1.5 text-sm font-medium"
+                  style={{
+                    border: '1px solid var(--color-rule)',
+                    borderRadius: '4px',
+                    color: 'var(--color-graphite)',
+                  }}
+                >
+                  Stop sharing
+                </button>
+                <button
+                  onClick={toggleOffRecord}
+                  className="px-3 py-1.5 text-sm font-medium"
+                  style={{
+                    border: '1px solid var(--color-graphite)',
+                    borderRadius: '4px',
+                    color: 'var(--color-graphite)',
+                  }}
+                >
+                  {isOffRecord ? 'Resume recording' : 'Off the record'}
+                </button>
+                {!isOffRecord && (
+                  <button
+                    onClick={handleForgetButton}
+                    className="px-3 py-1.5 text-sm font-medium"
+                    style={{
+                      border: '1px solid var(--color-graphite)',
+                      borderRadius: '4px',
+                      color: 'var(--color-graphite)',
+                    }}
+                  >
+                    Forget that
+                  </button>
+                )}
+              </>
             )}
 
             {displayError && (

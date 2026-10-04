@@ -3,6 +3,7 @@ from fastapi import APIRouter, Request
 from app.repositories.sessions import SessionRepository
 from app.repositories.snapshots import SnapshotStore
 from app.schemas import ErpEventRequest, SessionEventsResponse, SnapshotIndex
+from app.services.redactor import redact_events
 
 router = APIRouter()
 
@@ -14,6 +15,8 @@ async def post_erp_events(
     body: ErpEventRequest,
 ) -> SessionEventsResponse:
     repo: SessionRepository = request.app.state.session_repo
+    redaction_entries = redact_events(body.events, "erp_events")
+    repo.append_redaction_log(session_id, redaction_entries)
     repo.add_erp_events(session_id, body.events)
 
     if body.events:

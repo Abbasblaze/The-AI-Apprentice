@@ -74,6 +74,40 @@ export type LedgerEntry =
   | { type: 'event'; data: AppEvent }
   | { type: 'question'; data: QuestionEntry }
   | { type: 'answer'; id: string; t: number; questionId: string; text: string }
+  | { type: 'off-record-gap'; id: string; start_t: number; end_t: number | null }
+  | {
+      type: 'forget-that'
+      id: string
+      t: number
+      events_removed: number
+      snapshots_removed: number
+    }
+
+export interface MaskRegion {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+export interface PrivacySummary {
+  session_id: string
+  total_events: number
+  total_erp_events: number
+  total_transcript_entries: number
+  total_snapshots: number
+  redaction_counts: Record<string, number>
+  redaction_by_location: Record<string, number>
+  off_record_periods: { start_t: number; end_t: number | null }[]
+  forget_that_records: { t: number; events_removed: number; snapshots_removed: number }[]
+  mask_region_count: number
+}
+
+export interface ForgetThatRecord {
+  t: number
+  events_removed: number
+  snapshots_removed: number
+}
 
 export type VoiceMode = 'idle' | 'listening' | 'speaking' | 'waiting' | 'off-record'
 
